@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: '🪖 Daily Sadhana Report',
-    description: '🪷 Govardhan Lifter Stage 🪷 [mataji-edition] - Your daily spiritual progress tracker',
+    description: '🎉 v0.0.5 - 🦚 Yamuna Devi Stage 🦚 [prabhu-edition] - Your daily spiritual progress tracker',
     images: ['/assets/iskm.webp'],
     creator: '@iskm',
   },
