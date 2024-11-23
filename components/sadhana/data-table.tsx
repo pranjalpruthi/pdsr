@@ -63,6 +63,14 @@ interface SadhanaRecord {
 
 const columns: ColumnDef<SadhanaRecord>[] = [
   {
+    accessorKey: "report_id",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" className="h-7 px-2 -ml-2" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        ID <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
+  },
+  {
     accessorKey: "date",
     header: ({ column }) => (
       <Button variant="ghost" size="sm" className="h-7 px-2 -ml-2" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
@@ -226,7 +234,6 @@ export function SadhanaDataTable() {
     columns,
     initialState: {
       columnVisibility: {
-        report_id: false,
         devotee_id: false,
       },
     },

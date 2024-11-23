@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +43,9 @@ import { CanvasRenderer } from 'echarts/renderers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CheckCircle, AlertCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Label } from "@/components/ui/label";
+import { Users, Plus, UserMinus, UserCog } from "lucide-react";
 
 echarts.use([GraphicComponent, CanvasRenderer]);
 
@@ -70,6 +73,104 @@ interface SupabaseReport {
   };
 }
 
+// Add this interface near the top with other interfaces
+interface DeleteReportDialogProps {
+  reportId: string;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}
+
+// Add this component before ManageSection
+function DeleteReportDialog({ reportId, isOpen, onOpenChange, onConfirm }: DeleteReportDialogProps) {
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete report #{reportId}.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+// Add this interface
+interface TableRowActionProps {
+  isDeleting: boolean;
+  onDelete: () => void;
+  onCancel: () => void;
+}
+
+// Add this component before ManageSection
+function TableRowAction({ isDeleting, onDelete, onCancel }: TableRowActionProps) {
+  return (
+    <div className="flex items-center gap-2">
+      {isDeleting ? (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className="h-8 px-2 text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-100/50 dark:hover:bg-red-900/50"
+          >
+            Delete
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            className="h-8 px-2 text-muted-foreground"
+          >
+            Cancel
+          </Button>
+        </>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+          onClick={onCancel}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// Add these interfaces
+interface DevoteeNameBadgeProps {
+  name: string;
+  onRemove: () => void;
+}
+
+function DevoteeNameBadge({ name, onRemove }: DevoteeNameBadgeProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+    >
+      <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
+        {name}
+        <X 
+          className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" 
+          onClick={onRemove}
+        />
+      </Badge>
+    </motion.div>
+  );
+}
+
 export function ManageSection() {
   const router = useRouter();
   const [devotees, setDevotees] = useState<Array<{ devotee_id: string; devotee_name: string }>>([]);
@@ -89,6 +190,9 @@ export function ManageSection() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [successDetails, setSuccessDetails] = useState<string>("");
+  const [deleteReportId, setDeleteReportId] = useState<string>("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
   // Memoize the individual load functions
   const loadDevotees = useCallback(async () => {
@@ -341,12 +445,7 @@ export function ManageSection() {
     }
   }
 
-  async function removeReport() {
-    if (!reportId) {
-      toast.error("Please enter a report ID");
-      return;
-    }
-
+  async function removeReport(reportId: string) {
     setIsLoading(true);
     try {
       const { error } = await supabase
@@ -356,25 +455,15 @@ export function ManageSection() {
 
       if (error) throw error;
 
-      showSuccess(
-        "Report Removed Successfully",
-        `Report #${reportId} has been permanently removed from the system.`
-      );
-      
-      setReportId("");
+      toast.success("Report deleted successfully");
+      await loadRecentReports();
       await loadChartData();
       router.refresh();
-      
-      // Close the confirmation dialog
-      const closeButton = document.querySelector('[data-state="open"] [role="alertdialog"] button[data-state="closed"]');
-      if (closeButton instanceof HTMLElement) {
-        closeButton.click();
-      }
-
     } catch (error) {
-      toast.error("Failed to remove report");
+      toast.error("Failed to delete report");
     } finally {
       setIsLoading(false);
+      setDeletingReportId(null);
     }
   }
 
@@ -606,158 +695,205 @@ export function ManageSection() {
       {/* Management Tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Devotee Management</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Devotee Management
+          </CardTitle>
+          <CardDescription>
+            Add, remove, or rename devotees in the system
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="add" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="add">Add</TabsTrigger>
-              <TabsTrigger value="remove">Remove</TabsTrigger>
-              <TabsTrigger value="rename">Rename</TabsTrigger>
-              <TabsTrigger value="report">Reports</TabsTrigger>
+          <Tabs defaultValue="add" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="add" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add
+              </TabsTrigger>
+              <TabsTrigger value="remove" className="flex items-center gap-2">
+                <UserMinus className="h-4 w-4" />
+                Remove
+              </TabsTrigger>
+              <TabsTrigger value="rename" className="flex items-center gap-2">
+                <UserCog className="h-4 w-4" />
+                Rename
+              </TabsTrigger>
             </TabsList>
 
             {/* Add Devotees Tab */}
             <TabsContent value="add" className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  placeholder="Type devotee name and press Enter"
-                  value={currentInput}
-                  onChange={(e) => setCurrentInput(e.target.value)}
-                  onKeyDown={handleAddName}
-                  disabled={isLoading}
-                />
-                <div className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded-md">
-                  {devoteeNames.map((name, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                      {name}
-                      <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => removeName(name)} />
-                    </Badge>
-                  ))}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="devotee-name">Devotee Names</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="devotee-name"
+                      placeholder="Type devotee name and press Enter"
+                      value={currentInput}
+                      onChange={(e) => setCurrentInput(e.target.value)}
+                      onKeyDown={handleAddName}
+                      disabled={isLoading}
+                    />
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={() => {
+                        if (currentInput.trim()) {
+                          setDevoteeNames([...devoteeNames, currentInput.trim()]);
+                          setCurrentInput("");
+                        }
+                      }}
+                      disabled={!currentInput.trim() || isLoading}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
+
+                <div className="min-h-[100px] p-4 border rounded-lg bg-muted/50">
+                  <AnimatePresence>
+                    {devoteeNames.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {devoteeNames.map((name, index) => (
+                          <DevoteeNameBadge
+                            key={index}
+                            name={name}
+                            onRemove={() => removeName(name)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-muted-foreground">
+                        Enter devotee names above
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <Button 
+                  onClick={addDevotee} 
+                  disabled={isLoading || devoteeNames.length === 0}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding Devotees...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add {devoteeNames.length} Devotee{devoteeNames.length !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </Button>
               </div>
-              <Button onClick={addDevotee} disabled={isLoading || devoteeNames.length === 0} className="w-full">
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding Devotees...
-                  </>
-                ) : (
-                  `Add ${devoteeNames.length} Devotee${devoteeNames.length !== 1 ? 's' : ''}`
-                )}
-              </Button>
             </TabsContent>
 
             {/* Remove Devotee Tab */}
             <TabsContent value="remove" className="space-y-4">
-              <Select onValueChange={setSelectedDevotee} value={selectedDevotee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select devotee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {devotees.map((devotee) => (
-                    <SelectItem key={devotee.devotee_id} value={devotee.devotee_id}>
-                      {devotee.devotee_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="destructive" disabled={isLoading || !selectedDevotee} className="w-full">
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Removing...
-                      </>
-                    ) : (
-                      'Remove Devotee'
-                    )}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Are you sure?</DialogTitle>
-                    <DialogDescription>
-                      This action cannot be undone. This will permanently delete the
-                      devotee and all associated reports.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Button variant="destructive" onClick={removeDevotee}>
-                    Yes, Remove Devotee
-                  </Button>
-                </DialogContent>
-              </Dialog>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="remove-devotee">Select Devotee</Label>
+                  <Select onValueChange={setSelectedDevotee} value={selectedDevotee}>
+                    <SelectTrigger id="remove-devotee">
+                      <SelectValue placeholder="Choose a devotee to remove" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {devotees.map((devotee) => (
+                        <SelectItem key={devotee.devotee_id} value={devotee.devotee_id}>
+                          {devotee.devotee_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedDevotee && (
+                  <Card className="border-destructive">
+                    <CardHeader className="space-y-1">
+                      <CardTitle className="text-destructive flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        Warning
+                      </CardTitle>
+                      <CardDescription>
+                        This will permanently delete the devotee and all their associated reports.
+                        This action cannot be undone.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                )}
+
+                <Button 
+                  variant="destructive" 
+                  onClick={removeDevotee} 
+                  disabled={isLoading || !selectedDevotee}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Removing Devotee...
+                    </>
+                  ) : (
+                    <>
+                      <UserMinus className="mr-2 h-4 w-4" />
+                      Remove Devotee
+                    </>
+                  )}
+                </Button>
+              </div>
             </TabsContent>
 
             {/* Rename Devotee Tab */}
             <TabsContent value="rename" className="space-y-4">
-              <Select onValueChange={setSelectedDevotee} value={selectedDevotee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select devotee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {devotees.map((devotee) => (
-                    <SelectItem key={devotee.devotee_id} value={devotee.devotee_id}>
-                      {devotee.devotee_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Enter new name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
-              <Button 
-                onClick={renameDevotee} 
-                disabled={isLoading || !selectedDevotee || !newName.trim()}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Renaming...
-                  </>
-                ) : (
-                  'Rename Devotee'
-                )}
-              </Button>
-            </TabsContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rename-devotee">Select Devotee</Label>
+                  <Select onValueChange={setSelectedDevotee} value={selectedDevotee}>
+                    <SelectTrigger id="rename-devotee">
+                      <SelectValue placeholder="Choose a devotee to rename" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {devotees.map((devotee) => (
+                        <SelectItem key={devotee.devotee_id} value={devotee.devotee_id}>
+                          {devotee.devotee_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Remove Report Tab */}
-            <TabsContent value="report" className="space-y-4">
-              <Input
-                type="number"
-                placeholder="Enter report ID"
-                value={reportId}
-                onChange={(e) => setReportId(e.target.value)}
-              />
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="destructive" disabled={isLoading || !reportId} className="w-full">
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Removing...
-                      </>
-                    ) : (
-                      'Remove Report'
-                    )}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Are you sure?</DialogTitle>
-                    <DialogDescription>
-                      This action cannot be undone. This will permanently delete the report.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Button variant="destructive" onClick={removeReport}>
-                    Yes, Remove Report
-                  </Button>
-                </DialogContent>
-              </Dialog>
+                {selectedDevotee && (
+                  <div className="space-y-2">
+                    <Label htmlFor="new-name">New Name</Label>
+                    <Input
+                      id="new-name"
+                      placeholder="Enter new name"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <Button 
+                  onClick={renameDevotee} 
+                  disabled={isLoading || !selectedDevotee || !newName.trim()}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Renaming Devotee...
+                    </>
+                  ) : (
+                    <>
+                      <UserCog className="mr-2 h-4 w-4" />
+                      Rename Devotee
+                    </>
+                  )}
+                </Button>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -784,7 +920,7 @@ export function ManageSection() {
         </Card>
       </div>
 
-      {/* Updated Recent Reports Card */}
+      {/* Recent Reports Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Reports</CardTitle>
@@ -812,17 +948,51 @@ export function ManageSection() {
                 <TableHead>Date</TableHead>
                 <TableHead>Devotee</TableHead>
                 <TableHead>Total Score</TableHead>
+                <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentReports.map((report) => (
-                <TableRow key={report.report_id}>
-                  <TableCell>{report.report_id}</TableCell>
-                  <TableCell>{new Date(report.date).toLocaleDateString()}</TableCell>
-                  <TableCell>{report.devotee_name}</TableCell>
-                  <TableCell>{report.total_score}</TableCell>
-                </TableRow>
-              ))}
+              <AnimatePresence>
+                {recentReports.map((report) => (
+                  <motion.tr
+                    key={report.report_id}
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className={cn(
+                      "relative transition-colors duration-200",
+                      deletingReportId === report.report_id && [
+                        "bg-red-100 dark:bg-red-900/30", // Stronger background color
+                        "text-red-900 dark:text-red-100", // Text color change
+                        "hover:bg-red-100 dark:hover:bg-red-900/30" // Maintain color on hover
+                      ]
+                    )}
+                  >
+                    <TableCell className="transition-colors">
+                      {report.report_id}
+                    </TableCell>
+                    <TableCell className="transition-colors">
+                      {new Date(report.date).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="transition-colors">
+                      {report.devotee_name}
+                    </TableCell>
+                    <TableCell className="transition-colors">
+                      {report.total_score}
+                    </TableCell>
+                    <TableCell>
+                      <TableRowAction
+                        isDeleting={deletingReportId === report.report_id}
+                        onDelete={() => removeReport(report.report_id)}
+                        onCancel={() => 
+                          deletingReportId === report.report_id 
+                            ? setDeletingReportId(null) 
+                            : setDeletingReportId(report.report_id)
+                        }
+                      />
+                    </TableCell>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
             </TableBody>
           </Table>
         </CardContent>
