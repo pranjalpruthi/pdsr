@@ -14,6 +14,9 @@ import { motion } from "framer-motion";
 import ModeToggle from "@/components/mode-toggle";
 import Image from "next/image";
 import { ChantingVideos } from "@/components/sadhana/chanting-videos";
+import { Leaderboard } from "@/components/sadhana/leaderboard";
+import { DailyStats } from "@/components/sadhana/daily-stats";
+import { LayoutDashboard, ChartBar, ClipboardList, Trophy, Settings } from "lucide-react";
 
 export default function Home() {
   // Animation variants
@@ -49,7 +52,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden pb-16 md:pb-0">
       {/* Background Image positioned on right edge */}
       <div className="fixed right-0 top-0 h-full w-1/3 -z-10">
         <div className="absolute inset-0 bg-gradient-to-l from-transparent to-background" />
@@ -115,7 +118,7 @@ export default function Home() {
             variants={itemVariants}
           >
             <Badge variant="secondary" className="text-xs md:text-sm">
-              v0.0.5 - 🦚 Yamuna Devi Stage 🦚 [prabhu-edition]
+            v0.0.6 - 🌺 Madhumangala Stage 🌺 [prabhu-edition]
             </Badge>
             
             {/* Operational Status Badge */}
@@ -162,11 +165,21 @@ export default function Home() {
           className="relative z-10"
         >
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <div className="flex justify-center">
-              <TabsList className="grid w-full grid-cols-4 max-w-[600px] bg-white/10 dark:bg-black/10 backdrop-blur-md">
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex justify-center">
+              <TabsList className="grid w-full grid-cols-5 max-w-[600px] bg-white/10 dark:bg-black/10 backdrop-blur-md">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="stats">Statistics</TabsTrigger>
                 <TabsTrigger value="records">Records</TabsTrigger>
+                <TabsTrigger value="leaderboard" className="relative">
+                  Leaderboard
+                  <span className="absolute -top-2 -right-2 flex h-5 w-5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-5 w-5 bg-pink-500 items-center justify-center text-[10px] text-white font-medium">
+                      New
+                    </span>
+                  </span>
+                </TabsTrigger>
                 <TabsTrigger value="manage">Manage</TabsTrigger>
               </TabsList>
             </div>
@@ -211,19 +224,14 @@ export default function Home() {
             {/* Statistics Tab */}
             <TabsContent value="stats">
               <div className="space-y-6">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  <Suspense 
-                    fallback={
-                      <Card className="h-[400px] animate-pulse" />
-                    }
-                  >
+                <div className="grid grid-cols-1 gap-6">
+                  <Suspense fallback={<Card className="h-[400px] animate-pulse" />}>
+                    <DailyStats />
+                  </Suspense>
+                  <Suspense fallback={<Card className="h-[400px] animate-pulse" />}>
                     <WeeklyStats />
                   </Suspense>
-                  <Suspense 
-                    fallback={
-                      <Card className="h-[400px] animate-pulse" />
-                    }
-                  >
+                  <Suspense fallback={<Card className="h-[400px] animate-pulse" />}>
                     <MonthlyStats />
                   </Suspense>
                 </div>
@@ -243,6 +251,36 @@ export default function Home() {
               </div>
             </TabsContent>
 
+            {/* Leaderboard Tab */}
+            <TabsContent value="leaderboard">
+              <div className="space-y-4">
+                <div className="flex justify-center gap-2 items-center">
+                  <Badge variant="secondary" className="text-xs md:text-sm">
+                    🏆 Top Devotees
+                  </Badge>
+                  <Badge 
+                    variant="secondary" 
+                    className="text-xs md:text-sm flex items-center gap-2 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200/50"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                    Updates Every 24 Hours
+                  </Badge>
+                  <Badge 
+                    variant="secondary" 
+                    className="text-xs md:text-sm bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
+                  >
+                    Season 1 Active
+                  </Badge>
+                </div>
+                <Suspense fallback={<Card className="h-[400px] animate-pulse" />}>
+                  <Leaderboard />
+                </Suspense>
+              </div>
+            </TabsContent>
+
             {/* Manage Tab */}
             <TabsContent value="manage">
               <div className="space-y-4">
@@ -255,6 +293,53 @@ export default function Home() {
                 </Suspense>
               </div>
             </TabsContent>
+
+            {/* Mobile Navigation - Now inside Tabs component */}
+            <div className="fixed bottom-0 left-0 right-0 md:hidden bg-background/80 backdrop-blur-lg border-t z-50">
+              <nav className="flex justify-around items-center h-16">
+                <TabsList className="grid grid-cols-5 w-full h-full bg-transparent border-none">
+                  <TabsTrigger 
+                    value="overview" 
+                    className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Overview</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="stats" 
+                    className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent"
+                  >
+                    <ChartBar className="h-4 w-4" />
+                    <span>Stats</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="records" 
+                    className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    <span>Records</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="leaderboard" 
+                    className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent relative"
+                  >
+                    <Trophy className="h-4 w-4" />
+                    <span>Leaders</span>
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-pink-500"></span>
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="manage" 
+                    className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Manage</span>
+                  </TabsTrigger>
+                </TabsList>
+              </nav>
+            </div>
           </Tabs>
         </motion.div>
       </div>

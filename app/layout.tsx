@@ -19,10 +19,10 @@ export const metadata: Metadata = {
     default: '🪖 Daily Sadhana Report',
     template: `%s | Daily Sadhana Report`
   },
-  description: '🪷 Govardhan Lifter Stage 🪷 [mataji-edition] - A platform for devotees to track their daily spiritual practices and progress',
+  description: '- A platform for devotees to track their daily spiritual practices and progress',
   openGraph: {
     title: '🪖 Daily Sadhana Report',
-    description: '🪷 Govardhan Lifter Stage 🪷 [mataji-edition] - Track your spiritual journey with our comprehensive Sadhana reporting system',
+    description: '- Track your spiritual journey with our comprehensive Sadhana reporting system',
     images: [
       {
         url: '/assets/iskm.webp',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: '🪖 Daily Sadhana Report',
-    description: '🎉 v0.0.5 - 🦚 Yamuna Devi Stage 🦚 [prabhu-edition] - Your daily spiritual progress tracker',
+    description: '- Your daily spiritual progress tracker',
     images: ['/assets/iskm.webp'],
     creator: '@iskm',
   },

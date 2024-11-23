@@ -162,6 +162,26 @@ const config: Config = {
           '0%': { transform: 'rotate(0deg)' },
           '100%': { transform: 'rotate(360deg)' },
         },
+        meteor: {
+          "0%": { transform: "rotate(215deg) translateX(0)", opacity: "1" },
+          "70%": { opacity: "1" },
+          "100%": {
+            transform: "rotate(215deg) translateX(-500px)",
+            opacity: "0",
+          },
+        },
+        "background-position-spin": {
+          "0%": { backgroundPosition: "top center" },
+          "100%": { backgroundPosition: "bottom center" },
+        },
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(calc(-100% - var(--gap)))" },
+        },
+        "marquee-vertical": {
+          from: { transform: "translateY(0)" },
+          to: { transform: "translateY(calc(-100% - var(--gap)))" },
+        },
       },
       animation: {
         "logo-cloud": "logo-cloud 30s linear infinite", // Adjust duration and timing as needed for your design.
@@ -177,6 +197,10 @@ const config: Config = {
         'pulse-glow-fast': 'pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'pulse-slow': 'pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'logo-spin': 'logo-spin 20s linear infinite',
+        meteor: "meteor 5s linear infinite",
+        "background-position-spin": "background-position-spin 3000ms infinite alternate",
+        marquee: "marquee var(--duration) linear infinite",
+        "marquee-vertical": "marquee-vertical var(--duration) linear infinite",
       },
       backdropBlur: {
         xs: '2px',
