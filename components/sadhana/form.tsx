@@ -194,6 +194,18 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
   }, []);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    // Convert the date to UTC before submission
+    const utcDate = new Date(Date.UTC(
+      values.date.getFullYear(),
+      values.date.getMonth(),
+      values.date.getDate()
+    ));
+
+    const submissionValues = {
+      ...values,
+      date: utcDate, // Use the UTC date
+    };
+
     // First validate the current step
     const isCurrentStepValid = await validateCurrentStep();
     if (!isCurrentStepValid) {
@@ -212,10 +224,10 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
 
       // Validate total rounds (sum of all japa fields)
       const totalRounds = 
-        values.before_7_am_japa_session + 
-        values.before_7_am + 
-        values.from_7_to_9_am + 
-        values.after_9_am;
+        submissionValues.before_7_am_japa_session + 
+        submissionValues.before_7_am + 
+        submissionValues.from_7_to_9_am + 
+        submissionValues.after_9_am;
 
       if (totalRounds === 0) {
         if (loadingToast) toast.dismiss(loadingToast);
@@ -226,7 +238,7 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
         return;
       }
 
-      if (!values.devotee_id) {
+      if (!submissionValues.devotee_id) {
         if (loadingToast) toast.dismiss(loadingToast);
         toast.error("Required Field Missing", {
           description: "Please select a devotee name"
@@ -236,19 +248,19 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
       }
 
       const scores = calculateScores(
-        values.before_7_am_japa_session,
-        values.before_7_am,
-        values.from_7_to_9_am,
-        values.after_9_am,
-        values.book_reading_time_min,
-        values.lecture_time_min,
-        values.seva_time_min
+        submissionValues.before_7_am_japa_session,
+        submissionValues.before_7_am,
+        submissionValues.from_7_to_9_am,
+        submissionValues.after_9_am,
+        submissionValues.book_reading_time_min,
+        submissionValues.lecture_time_min,
+        submissionValues.seva_time_min
       );
 
       const { data, error } = await supabase
         .from('sadhna_report')
         .insert([{
-          ...values,
+          ...submissionValues,
           ...scores,
         }])
         .select()
