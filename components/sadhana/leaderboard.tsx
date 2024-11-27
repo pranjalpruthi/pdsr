@@ -303,6 +303,13 @@ interface LeaderboardStats {
   significantImprovements: Array<Improvement>;
 }
 
+// Add this helper function at the top level
+function getWeekNumber(date = new Date()) {
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+}
+
 export function Leaderboard() {
   const [stats, setStats] = useState<LeaderboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -312,8 +319,9 @@ export function Leaderboard() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isImprovementDialogOpen, setIsImprovementDialogOpen] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
-  const [topThreeView, setTopThreeView] = useState<'weekly' | 'monthly' | 'overall'>('overall');
+  const [topThreeView, setTopThreeView] = useState<'weekly' | 'monthly' | 'overall'>('weekly');
   const [selectedImprovement, setSelectedImprovement] = useState<Improvement | null>(null);
+  const [currentWeek] = useState(getWeekNumber());
 
   const fetchLeaderboardStats = async () => {
     setIsLoading(true);
@@ -555,29 +563,37 @@ export function Leaderboard() {
           {/* Toggle Buttons */}
           <motion.div 
             variants={itemVariants}
-            className="flex justify-center gap-2"
+            className="flex flex-col items-center gap-2"
           >
-            <Badge
-              variant={topThreeView === 'weekly' ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-accent"
-              onClick={() => setTopThreeView('weekly')}
-            >
-              Weekly
-            </Badge>
-            <Badge
-              variant={topThreeView === 'monthly' ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-accent"
-              onClick={() => setTopThreeView('monthly')}
-            >
-              Monthly
-            </Badge>
-            <Badge
-              variant={topThreeView === 'overall' ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-accent"
-              onClick={() => setTopThreeView('overall')}
-            >
-              Overall
-            </Badge>
+            {/* Add Week Number Display */}
+            {topThreeView === 'weekly' && (
+              <div className="text-sm text-muted-foreground mb-2">
+                Week {currentWeek} of {new Date().getFullYear()}
+              </div>
+            )}
+            <div className="flex justify-center gap-2">
+              <Badge
+                variant={topThreeView === 'weekly' ? 'default' : 'outline'}
+                className="cursor-pointer hover:bg-accent"
+                onClick={() => setTopThreeView('weekly')}
+              >
+                Weekly
+              </Badge>
+              <Badge
+                variant={topThreeView === 'monthly' ? 'default' : 'outline'}
+                className="cursor-pointer hover:bg-accent"
+                onClick={() => setTopThreeView('monthly')}
+              >
+                Monthly
+              </Badge>
+              <Badge
+                variant={topThreeView === 'overall' ? 'default' : 'outline'}
+                className="cursor-pointer hover:bg-accent"
+                onClick={() => setTopThreeView('overall')}
+              >
+                Overall
+              </Badge>
+            </div>
           </motion.div>
 
           {/* Podium Section */}
