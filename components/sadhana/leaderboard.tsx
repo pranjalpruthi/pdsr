@@ -1338,24 +1338,28 @@ export function Leaderboard() {
                           {/* Improvement Card */}
                           <motion.div variants={cardVariants}>
                             <Card className="overflow-hidden">
-                              <CardHeader className="pb-2">
-                                <CardTitle className="text-sm">Improvement</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <motion.div
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  transition={{
-                                    type: "spring",
-                                    stiffness: 200,
-                                    damping: 15,
-                                    delay: 0.2
-                                  }}
-                                  className="text-2xl font-bold text-green-600"
-                                >
-                                  +{selectedImprovement.improvement.toFixed(1)}
-                                </motion.div>
-                                <p className="text-sm text-muted-foreground">Points increased</p>
+                              <CardContent className="pt-6">
+                                <div className="flex items-center gap-4">
+                                  <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/20">
+                                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                  </div>
+                                  <div>
+                                    <motion.div
+                                      initial={{ scale: 0 }}
+                                      animate={{ scale: 1 }}
+                                      transition={{
+                                        type: "spring",
+                                        stiffness: 200,
+                                        damping: 15,
+                                        delay: 0.2
+                                      }}
+                                      className="text-2xl font-bold text-green-600 dark:text-green-400"
+                                    >
+                                      +{selectedImprovement.improvement.toFixed(1)}
+                                    </motion.div>
+                                    <p className="text-sm text-muted-foreground">Points increased</p>
+                                  </div>
+                                </div>
                               </CardContent>
                             </Card>
                           </motion.div>
@@ -1363,24 +1367,28 @@ export function Leaderboard() {
                           {/* Growth Rate Card */}
                           <motion.div variants={cardVariants}>
                             <Card className="overflow-hidden">
-                              <CardHeader className="pb-2">
-                                <CardTitle className="text-sm">Growth Rate</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <motion.div
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  transition={{
-                                    type: "spring",
-                                    stiffness: 200,
-                                    damping: 15,
-                                    delay: 0.4
-                                  }}
-                                  className="text-2xl font-bold text-blue-600"
-                                >
-                                  {selectedImprovement.percentageIncrease.toFixed(1)}%
-                                </motion.div>
-                                <p className="text-sm text-muted-foreground">Percentage increase</p>
+                              <CardContent className="pt-6">
+                                <div className="flex items-center gap-4">
+                                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20">
+                                    <Rocket className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                  </div>
+                                  <div>
+                                    <motion.div
+                                      initial={{ scale: 0 }}
+                                      animate={{ scale: 1 }}
+                                      transition={{
+                                        type: "spring",
+                                        stiffness: 200,
+                                        damping: 15,
+                                        delay: 0.4
+                                      }}
+                                      className="text-2xl font-bold text-blue-600 dark:text-blue-400"
+                                    >
+                                      {selectedImprovement.percentageIncrease.toFixed(1)}%
+                                    </motion.div>
+                                    <p className="text-sm text-muted-foreground">Growth rate</p>
+                                  </div>
+                                </div>
                               </CardContent>
                             </Card>
                           </motion.div>
@@ -1594,7 +1602,7 @@ export function Leaderboard() {
 
                                     <Bar 
                                       dataKey="score" 
-                                      barSize={window.innerWidth < 640 ? 15 : 20}
+                                      barSize={window.innerWidth < 640 ? 30 : 40}
                                     >
                                       {selectedImprovement.scoreData.map((entry, index) => (
                                         <Cell
