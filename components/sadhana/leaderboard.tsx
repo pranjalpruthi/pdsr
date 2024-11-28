@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, TrendingUp, Crown, Star, Sparkles, Rocket, Award, Bell, BookOpen, Headphones, Heart, QuoteIcon } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Trophy, TrendingUp, Crown, Star, Sparkles, Rocket, Award, Bell, BookOpen, Headphones, Heart, QuoteIcon, ArrowRight, Medal, ListIcon, TrendingDown, Minus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -35,11 +42,33 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { GradientBentoCard } from "@/components/ui/gradient-bento-card";
+import { Button } from "@/components/ui/button";
+import { LoaderCircle } from "@/components/ui/loader-circle";
+import { 
+  Bar, 
+  BarChart, 
+  CartesianGrid, 
+  Cell, 
+  LabelList,
+  Line,
+  ComposedChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis
+} from "recharts";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+
 interface Improvement {
   devotee_name: string;
   improvement: number;
   percentageIncrease: number;
   date: string;
+  scoreData: ScoreData[];
 }
 
 interface PersonalStats {
@@ -62,6 +91,7 @@ interface PersonalStats {
   seva_name: string;
   seva_time_min: number;
   score_d: number;
+  scoreData: ScoreData[];
 }
 
 interface LeaderboardEntry {
@@ -74,7 +104,7 @@ interface LeaderboardEntry {
 interface ImprovementCardProps {
   improvement: Improvement;
   index: number;
-  onClick: () => void;
+  onClick: (improvement: Improvement) => void;
 }
 
 const ImprovementCard = ({ improvement, index, onClick }: ImprovementCardProps) => {
@@ -88,7 +118,10 @@ const ImprovementCard = ({ improvement, index, onClick }: ImprovementCardProps) 
 
   return (
     <button
-      onClick={onClick}
+      onClick={async () => {
+        const scoreData = await fetchScoreData(improvement.devotee_name);
+        onClick({ ...improvement, scoreData });
+      }}
       className={cn(
         "relative w-64 mx-2 overflow-hidden rounded-xl border p-4",
         "transform transition-all hover:scale-[1.02] active:scale-[0.98]",
@@ -249,16 +282,19 @@ const fadeInScale = {
 const BlockQuote = ({
   quote,
   author,
+  className,
 }: {
   quote: string;
   author: string;
+  className?: string;
 }) => {
   return (
     <blockquote className={cn(
       "rounded-xl border-l-4 px-4 py-3",
       "border-purple-500/70 bg-purple-500/15 text-purple-700",
       "dark:bg-purple-500/10 dark:text-purple-400",
-      "transition-all duration-300"
+      "transition-all duration-300",
+      className
     )}>
       <p className="inline italic">
         <QuoteIcon
@@ -310,6 +346,138 @@ function getWeekNumber(date = new Date()) {
   return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
 }
 
+// Add these gradient configurations
+const positionGradients = {
+  4: {
+    badge: "from-emerald-500 via-teal-500 to-cyan-500",
+    text: "text-emerald-50",
+    border: "border-emerald-400/30",
+    background: "bg-emerald-500/20",
+  },
+  5: {
+    badge: "from-violet-500 via-purple-500 to-fuchsia-500",
+    text: "text-violet-50",
+    border: "border-violet-400/30",
+    background: "bg-violet-500/20",
+  },
+  6: {
+    badge: "from-rose-500 via-pink-500 to-red-500",
+    text: "text-rose-50",
+    border: "border-rose-400/30",
+    background: "bg-rose-500/20",
+  },
+  7: {
+    badge: "from-blue-500 via-indigo-500 to-violet-500",
+    text: "text-blue-50",
+    border: "border-blue-400/30",
+    background: "bg-blue-500/20",
+  },
+  8: {
+    badge: "from-amber-500 via-orange-500 to-yellow-500",
+    text: "text-amber-50",
+    border: "border-amber-400/30",
+    background: "bg-amber-500/20",
+  },
+  9: {
+    badge: "from-lime-500 via-green-500 to-emerald-500",
+    text: "text-lime-50",
+    border: "border-lime-400/30",
+    background: "bg-lime-500/20",
+  },
+  10: {
+    badge: "from-cyan-500 via-sky-500 to-blue-500",
+    text: "text-cyan-50",
+    border: "border-cyan-400/30",
+    background: "bg-cyan-500/20",
+  },
+};
+
+// Update the position styles to include gradients
+const positionStyles = {
+  4: {
+    gradient: "from-emerald-500 via-teal-500 to-cyan-500",
+    text: "text-emerald-50",
+    loaderColor: "text-emerald-500",
+    hoverBg: "hover:bg-emerald-50 dark:hover:bg-emerald-900/10",
+  },
+  5: {
+    gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
+    text: "text-violet-50",
+    loaderColor: "text-violet-500",
+    hoverBg: "hover:bg-violet-50 dark:hover:bg-violet-900/10",
+  },
+  6: {
+    gradient: "from-rose-500 via-pink-500 to-red-500",
+    text: "text-rose-50",
+    loaderColor: "text-rose-500",
+    hoverBg: "hover:bg-rose-50 dark:hover:bg-rose-900/10",
+  },
+  7: {
+    gradient: "from-blue-500 via-indigo-500 to-violet-500",
+    text: "text-blue-50",
+    loaderColor: "text-blue-500",
+    hoverBg: "hover:bg-blue-50 dark:hover:bg-blue-900/10",
+  },
+  8: {
+    gradient: "from-amber-500 via-orange-500 to-yellow-500",
+    text: "text-amber-50",
+    loaderColor: "text-amber-500",
+    hoverBg: "hover:bg-amber-50 dark:hover:bg-amber-900/10",
+  },
+  9: {
+    gradient: "from-lime-500 via-green-500 to-emerald-500",
+    text: "text-lime-50",
+    loaderColor: "text-lime-500",
+    hoverBg: "hover:bg-lime-50 dark:hover:bg-lime-900/10",
+  },
+  10: {
+    gradient: "from-cyan-500 via-sky-500 to-blue-500",
+    text: "text-cyan-50",
+    loaderColor: "text-cyan-500",
+    hoverBg: "hover:bg-cyan-50 dark:hover:bg-cyan-900/10",
+  },
+};
+
+// Add interface for chart data
+interface ScoreData {
+  id: string;
+  date: string;
+  fullDate: string;
+  score: number;
+  improvement: number;
+}
+
+// Add this function near your other fetch functions
+const fetchScoreData = async (devoteeName: string) => {
+  const { data, error } = await supabase
+    .from('sadhna_report_view')
+    .select('*')
+    .eq('devotee_name', devoteeName)
+    .order('date', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    console.error('Error fetching score data:', error);
+    return [];
+  }
+
+  return data.map((entry, index) => ({
+    id: `${entry.date}-${index}`,
+    date: new Date(entry.date).toLocaleDateString('en-US', { 
+      weekday: 'short',
+    }),
+    shortDate: new Date(entry.date).toLocaleDateString('en-US', { 
+      month: 'short',
+      day: 'numeric',
+    }),
+    fullDate: entry.date,
+    score: entry.total_score,
+    improvement: data.indexOf(entry) < data.length - 1 
+      ? entry.total_score - data[data.indexOf(entry) + 1].total_score 
+      : 0,
+  })).reverse();
+};
+
 export function Leaderboard() {
   const [stats, setStats] = useState<LeaderboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -319,9 +487,10 @@ export function Leaderboard() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isImprovementDialogOpen, setIsImprovementDialogOpen] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
-  const [topThreeView, setTopThreeView] = useState<'weekly' | 'monthly' | 'overall'>('weekly');
   const [selectedImprovement, setSelectedImprovement] = useState<Improvement | null>(null);
   const [currentWeek] = useState(getWeekNumber());
+  const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
+  const [loadingPositions, setLoadingPositions] = useState<Record<number, boolean>>({});
 
   const fetchLeaderboardStats = async () => {
     setIsLoading(true);
@@ -404,6 +573,7 @@ export function Leaderboard() {
               improvement,
               percentageIncrease,
               date: new Date(records.data.find(r => r.total_score === latestScore)?.date || '').toLocaleDateString(),
+              scoreData: [],
             });
           }
         }
@@ -438,7 +608,8 @@ export function Leaderboard() {
       .from('sadhna_report_view')
       .select('*')
       .eq('devotee_name', devoteeName)
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .limit(7);
 
     if (data && data.length > 0) {
       const currentScore = data[0].total_score;
@@ -446,6 +617,22 @@ export function Leaderboard() {
       const previousBest = previousScores.length > 0 ? Math.max(...previousScores) : currentScore;
       const improvement = currentScore - previousBest;
       const percentageIncrease = previousBest === 0 ? 0 : (improvement / previousBest) * 100;
+
+      const scoreData: ScoreData[] = data.map((entry, index) => ({
+        id: `${entry.date}-${index}`,
+        date: new Date(entry.date).toLocaleDateString('en-US', { 
+          weekday: 'short'
+        }),
+        shortDate: new Date(entry.date).toLocaleDateString('en-US', { 
+          month: 'short',
+          day: 'numeric'
+        }),
+        fullDate: entry.date,
+        score: entry.total_score,
+        improvement: data.indexOf(entry) < data.length - 1 
+          ? entry.total_score - data[data.indexOf(entry) + 1].total_score 
+          : 0
+      })).reverse();
 
       setPersonalStats({
         devotee_name: devoteeName,
@@ -467,6 +654,7 @@ export function Leaderboard() {
         seva_name: data[0].seva_name,
         seva_time_min: data[0].seva_time_min,
         score_d: data[0].score_d,
+        scoreData,
       });
     }
   };
@@ -487,19 +675,62 @@ export function Leaderboard() {
 
   const getTopThree = () => {
     if (!leaderboardData?.length) return [];
-    
-    const sortedData = [...leaderboardData].sort((a, b) => {
-      switch (topThreeView) {
-        case 'weekly':
-          return b.weekly_score - a.weekly_score;
-        case 'monthly':
-          return b.monthly_score - a.monthly_score;
-        default:
-          return b.total_score - a.total_score;
+    return [...leaderboardData]
+      .sort((a, b) => b.weekly_score - a.weekly_score)
+      .slice(0, 3);
+  };
+
+  const handleBadgeClick = async (position: number, devoteeName: string) => {
+    setLoadingPositions(prev => ({ ...prev, [position]: true }));
+
+    try {
+      const { data, error } = await supabase
+        .from('sadhna_report_view')
+        .select('*')
+        .eq('devotee_name', devoteeName)
+        .order('date', { ascending: false })
+        .limit(7);
+
+      if (data && data.length > 0) {
+        const scoreData: ScoreData[] = data.map((entry, index) => ({
+          id: `${entry.date}-${index}`,
+          date: new Date(entry.date).toLocaleDateString('en-US', { 
+            weekday: 'short'
+          }),
+          shortDate: new Date(entry.date).toLocaleDateString('en-US', { 
+            month: 'short',
+            day: 'numeric'
+          }),
+          fullDate: entry.date,
+          score: entry.total_score,
+          improvement: data.indexOf(entry) < data.length - 1 
+            ? entry.total_score - data[data.indexOf(entry) + 1].total_score 
+            : 0
+        })).reverse();
+
+        const latestScore = data[0].total_score;
+        const previousScores = data.slice(1);
+        const avgPreviousScore = previousScores.length > 0
+          ? previousScores.reduce((a, b) => a + b.total_score, 0) / previousScores.length
+          : latestScore;
+        
+        const improvement = latestScore - avgPreviousScore;
+        const percentageIncrease = (improvement / avgPreviousScore) * 100;
+
+        setSelectedImprovement({
+          devotee_name: devoteeName,
+          improvement,
+          percentageIncrease,
+          date: new Date(data[0].date).toLocaleDateString(),
+          scoreData,
+        });
+        setIsImprovementDialogOpen(true);
       }
-    });
-    
-    return sortedData.slice(0, 3);
+    } finally {
+      setTimeout(() => {
+        setLoadingPositions(prev => ({ ...prev, [position]: false }));
+      }, 500);
+    }
   };
 
   useEffect(() => {
@@ -566,33 +797,8 @@ export function Leaderboard() {
             className="flex flex-col items-center gap-2"
           >
             {/* Add Week Number Display */}
-            {topThreeView === 'weekly' && (
-              <div className="text-sm text-muted-foreground mb-2">
-                Week {currentWeek} of {new Date().getFullYear()}
-              </div>
-            )}
-            <div className="flex justify-center gap-2">
-              <Badge
-                variant={topThreeView === 'weekly' ? 'default' : 'outline'}
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => setTopThreeView('weekly')}
-              >
-                Weekly
-              </Badge>
-              <Badge
-                variant={topThreeView === 'monthly' ? 'default' : 'outline'}
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => setTopThreeView('monthly')}
-              >
-                Monthly
-              </Badge>
-              <Badge
-                variant={topThreeView === 'overall' ? 'default' : 'outline'}
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => setTopThreeView('overall')}
-              >
-                Overall
-              </Badge>
+            <div className="text-sm text-muted-foreground mb-2">
+              Week {currentWeek} of {new Date().getFullYear()}
             </div>
           </motion.div>
 
@@ -601,94 +807,154 @@ export function Leaderboard() {
             <div className="absolute inset-0 bg-gradient-to-b from-background to-muted/20 rounded-xl -z-10" />
             <div className="p-4 sm:p-8">
               {leaderboardData?.length > 0 ? (
-                <div className="flex items-end justify-center gap-2 sm:gap-6">
-                  {/* 2nd Place */}
-                  <motion.button
-                    variants={podiumVariants}
-                    key={getTopThree()[1]?.devotee_name}
-                    onClick={() => triggerConfetti(["#C0C0C0", "#E8E8E8"])}
-                    className={cn(
-                      "relative w-[120px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
-                      "transition-all hover:scale-105 hover:-translate-y-1",
-                      "border-2 border-[#C0C0C0]",
-                      "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/50 dark:to-gray-900/30",
-                      "flex flex-col items-center gap-2 sm:gap-3",
-                      "group shadow-lg"
-                    )}
-                  >
-                    <Star className="h-4 w-4 sm:h-6 sm:w-6 text-[#C0C0C0] group-hover:text-[#E8E8E8]" />
-                    <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 truncate w-full text-center">
-                      {getTopThree()[1]?.devotee_name}
-                    </span>
-                    <Badge variant="secondary" className="bg-[#C0C0C0]/10 text-[#808080] text-xs sm:text-sm">
-                      {topThreeView === 'weekly' 
-                        ? getTopThree()[1]?.weekly_score 
-                        : topThreeView === 'monthly'
-                        ? getTopThree()[1]?.monthly_score
-                        : getTopThree()[1]?.total_score} pts
-                    </Badge>
-                  </motion.button>
-
-                  {/* 1st Place - Special Treatment */}
-                  <motion.button
-                    variants={podiumVariants}
-                    key={getTopThree()[0]?.devotee_name}
-                    onClick={() => triggerConfetti(["#FFD700", "#FFED4A"])}
-                    className={cn(
-                      "relative w-[140px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
-                      "transition-all hover:scale-105 hover:-translate-y-2",
-                      "border-2 border-[#FFD700]",
-                      "bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/50 dark:to-amber-900/30",
-                      "flex flex-col items-center gap-2 sm:gap-3",
-                      "group shadow-xl",
-                      "transform scale-105 -translate-y-4"
-                    )}
-                  >
-                    <Crown className="h-6 w-6 sm:h-8 sm:w-8 text-[#FFD700] group-hover:text-[#FFED4A]" />
-                    <SparklesText 
-                      text={getTopThree()[0]?.devotee_name}
-                      className="text-base sm:text-lg font-semibold truncate w-full text-center"
-                      colors={{ first: "#FFD700", second: "#FFED4A" }}
-                    />
-                    <Badge 
-                      variant="secondary" 
-                      className="bg-[#FFD700]/20 text-[#B8860B] px-3 sm:px-4 py-0.5 sm:py-1 text-sm sm:text-base"
+                <div className="space-y-8">
+                  {/* Top 3 Podium */}
+                  <div className="flex items-end justify-center gap-2 sm:gap-6">
+                    {/* 2nd Place */}
+                    <motion.button
+                      variants={podiumVariants}
+                      key={getTopThree()[1]?.devotee_name}
+                      onClick={() => triggerConfetti(["#C0C0C0", "#E8E8E8"])}
+                      className={cn(
+                        "relative w-[120px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
+                        "transition-all hover:scale-105 hover:-translate-y-1",
+                        "border-2 border-[#C0C0C0]",
+                        "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/50 dark:to-gray-900/30",
+                        "flex flex-col items-center gap-2 sm:gap-3",
+                        "group shadow-lg"
+                      )}
                     >
-                      {topThreeView === 'weekly' 
-                        ? getTopThree()[0]?.weekly_score 
-                        : topThreeView === 'monthly'
-                        ? getTopThree()[0]?.monthly_score
-                        : getTopThree()[0]?.total_score} pts
-                    </Badge>
-                    <Meteors number={5} />
-                  </motion.button>
+                      <Star className="h-4 w-4 sm:h-6 sm:w-6 text-[#C0C0C0] group-hover:text-[#E8E8E8]" />
+                      <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 truncate w-full text-center">
+                        {getTopThree()[1]?.devotee_name}
+                      </span>
+                      <Badge variant="secondary" className="bg-[#C0C0C0]/10 text-[#808080] text-xs sm:text-sm">
+                        {getTopThree()[1]?.weekly_score} pts
+                      </Badge>
+                    </motion.button>
 
-                  {/* 3rd Place */}
-                  <motion.button
-                    variants={podiumVariants}
-                    key={getTopThree()[2]?.devotee_name}
-                    onClick={() => triggerConfetti(["#CD7F32", "#DFA878"])}
-                    className={cn(
-                      "relative w-[120px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
-                      "transition-all hover:scale-105 hover:-translate-y-1",
-                      "border-2 border-[#CD7F32]",
-                      "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/50 dark:to-orange-900/30",
-                      "flex flex-col items-center gap-2 sm:gap-3",
-                      "group shadow-lg"
-                    )}
+                    {/* 1st Place */}
+                    <motion.button
+                      variants={podiumVariants}
+                      key={getTopThree()[0]?.devotee_name}
+                      onClick={() => triggerConfetti(["#FFD700", "#FFED4A"])}
+                      className={cn(
+                        "relative w-[140px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
+                        "transition-all hover:scale-105 hover:-translate-y-2",
+                        "border-2 border-[#FFD700]",
+                        "bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/50 dark:to-amber-900/30",
+                        "flex flex-col items-center gap-2 sm:gap-3",
+                        "group shadow-xl",
+                        "transform scale-105 -translate-y-4"
+                      )}
+                    >
+                      <Crown className="h-6 w-6 sm:h-8 sm:w-8 text-[#FFD700] group-hover:text-[#FFED4A]" />
+                      <SparklesText 
+                        text={getTopThree()[0]?.devotee_name}
+                        className="text-base sm:text-lg font-semibold truncate w-full text-center"
+                        colors={{ first: "#FFD700", second: "#FFED4A" }}
+                      />
+                      <Badge variant="secondary" className="bg-[#FFD700]/20 text-[#B8860B] px-3 sm:px-4 py-0.5 sm:py-1 text-sm sm:text-base">
+                        {getTopThree()[0]?.weekly_score} pts
+                      </Badge>
+                      <Meteors number={5} />
+                    </motion.button>
+
+                    {/* 3rd Place */}
+                    <motion.button
+                      variants={podiumVariants}
+                      key={getTopThree()[2]?.devotee_name}
+                      onClick={() => triggerConfetti(["#CD7F32", "#DFA878"])}
+                      className={cn(
+                        "relative w-[120px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
+                        "transition-all hover:scale-105 hover:-translate-y-1",
+                        "border-2 border-[#CD7F32]",
+                        "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/50 dark:to-orange-900/30",
+                        "flex flex-col items-center gap-2 sm:gap-3",
+                        "group shadow-lg"
+                      )}
+                    >
+                      <Trophy className="h-4 w-4 sm:h-6 sm:w-6 text-[#CD7F32] group-hover:text-[#DFA878]" />
+                      <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 truncate w-full text-center">
+                        {getTopThree()[2]?.devotee_name}
+                      </span>
+                      <Badge variant="secondary" className="bg-[#CD7F32]/10 text-[#8B4513] text-xs sm:text-sm">
+                        {getTopThree()[2]?.weekly_score} pts
+                      </Badge>
+                    </motion.button>
+                  </div>
+
+                  {/* Positions 4-10 */}
+                  <motion.div 
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                    className="flex flex-wrap justify-center gap-3 px-4"
                   >
-                    <Trophy className="h-4 w-4 sm:h-6 sm:w-6 text-[#CD7F32] group-hover:text-[#DFA878]" />
-                    <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 truncate w-full text-center">
-                      {getTopThree()[2]?.devotee_name}
-                    </span>
-                    <Badge variant="secondary" className="bg-[#CD7F32]/10 text-[#8B4513] text-xs sm:text-sm">
-                      {topThreeView === 'weekly' 
-                        ? getTopThree()[2]?.weekly_score 
-                        : topThreeView === 'monthly'
-                        ? getTopThree()[2]?.monthly_score
-                        : getTopThree()[2]?.total_score} pts
-                    </Badge>
-                  </motion.button>
+                    {leaderboardData
+                      .filter(entry => !getTopThree().find(top => top.devotee_name === entry.devotee_name))
+                      .slice(0, 7)
+                      .map((entry, index) => {
+                        const position = index + 4;
+                        const style = positionStyles[position as keyof typeof positionStyles];
+                        const isLoading = loadingPositions[position] || false;
+                        
+                        if (entry.weekly_score === 0) return null;
+                        
+                        return (
+                          <motion.div
+                            key={entry.devotee_name}
+                            variants={fadeInScale}
+                            className="relative"
+                          >
+                            <Button
+                              onClick={() => handleBadgeClick(position, entry.devotee_name)}
+                              disabled={isLoading}
+                              data-loading={isLoading}
+                              className={cn(
+                                "group relative w-64 h-10 disabled:opacity-100",
+                                "rounded-full overflow-hidden",
+                                "border-0",
+                                "bg-gradient-to-r bg-[size:200%] bg-right hover:bg-left",
+                                "transition-[background-position] duration-300",
+                                style.gradient
+                              )}
+                            >
+                              <span className={cn(
+                                "group-data-[loading=true]:text-transparent",
+                                "flex items-center justify-center gap-2",
+                                "text-white font-medium"
+                              )}>
+                                <span className="text-sm opacity-80">#{position}</span>
+                                <span className="truncate">{entry.devotee_name}</span>
+                                <span className="text-sm font-normal opacity-90">
+                                  {entry.weekly_score} pts
+                                </span>
+                              </span>
+
+                              {isLoading && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <LoaderCircle 
+                                    className="animate-spin text-white" 
+                                    size={16} 
+                                    strokeWidth={2} 
+                                    aria-hidden="true" 
+                                  />
+                                </div>
+                              )}
+
+                              {/* Add subtle shine effect */}
+                              <div className={cn(
+                                "absolute inset-0 opacity-0 group-hover:opacity-20",
+                                "bg-gradient-to-r from-transparent via-white to-transparent",
+                                "translate-x-[-100%] group-hover:translate-x-[100%]",
+                                "transition-all duration-1000"
+                              )} />
+                            </Button>
+                          </motion.div>
+                        );
+                      })}
+                  </motion.div>
                 </div>
               ) : (
                 <div className="flex gap-4">
@@ -735,8 +1001,8 @@ export function Leaderboard() {
                   key={`${improvement.devotee_name}-${index}`}
                   improvement={improvement}
                   index={index}
-                  onClick={() => {
-                    setSelectedImprovement(improvement);
+                  onClick={async (improvementWithData) => {
+                    setSelectedImprovement(improvementWithData);
                     setIsImprovementDialogOpen(true);
                   }}
                 />
@@ -1042,68 +1308,344 @@ export function Leaderboard() {
         </div>
 
         {/* Dialogs */}
-        <Dialog open={isImprovementDialogOpen} onOpenChange={setIsImprovementDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">
-                Improvement Details 🌟
-              </DialogTitle>
-              <DialogDescription>
-                Detailed view of {selectedImprovement?.devotee_name}'s improvement
-              </DialogDescription>
-            </DialogHeader>
+        <Drawer open={isImprovementDialogOpen} onOpenChange={setIsImprovementDialogOpen}>
+          <DrawerContent className="max-h-[90vh]">
+            <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-red-500/10 py-3">
+              <DrawerTitle className="text-xl font-bold flex items-center gap-3">
+                <Sparkles className="h-6 w-6 text-yellow-500" />
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <span>Improvement Details</span>
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                      {selectedImprovement?.devotee_name}
+                    </Badge>
+                  </div>
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {selectedImprovement?.date}
+                  </span>
+                </div>
+              </DrawerTitle>
+            </DrawerHeader>
 
             {selectedImprovement && (
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">Achievement Details</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Improvement</CardTitle>
+              <div className="flex flex-col lg:flex-row flex-1">
+                {/* Left Side - Details & List */}
+                <div className="flex-1 p-6 border-r overflow-y-auto">
+                  <motion.div variants={staggerContainer} className="space-y-6">
+                    {/* Stats Cards */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {/* Improvement Card */}
+                      <motion.div variants={cardVariants}>
+                        <Card className="overflow-hidden">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm">Improvement</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 200,
+                                damping: 15,
+                                delay: 0.2
+                              }}
+                              className="text-2xl font-bold text-green-600"
+                            >
+                              +{selectedImprovement.improvement.toFixed(1)}
+                            </motion.div>
+                            <p className="text-sm text-muted-foreground">Points increased</p>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                      
+                      {/* Growth Rate Card */}
+                      <motion.div variants={cardVariants}>
+                        <Card className="overflow-hidden">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm">Growth Rate</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 200,
+                                damping: 15,
+                                delay: 0.4
+                              }}
+                              className="text-2xl font-bold text-blue-600"
+                            >
+                              {selectedImprovement.percentageIncrease.toFixed(1)}%
+                            </motion.div>
+                            <p className="text-sm text-muted-foreground">Percentage increase</p>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    </div>
+
+                    {/* Quote Card - Moved here */}
+                    <motion.div variants={fadeInScale}>
+                      <Card className="bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900/20">
+                        <CardContent className="pt-6">
+                          <BlockQuote
+                            quote="Every step forward in Krishna consciousness is eternally preserved and never lost."
+                            author="Srila Prabhupada"
+                            className="text-purple-800 dark:text-purple-200"
+                          />
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+
+                    {/* Score List */}
+                    <motion.div variants={cardVariants}>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <ListIcon className="h-4 w-4" />
+                            Score History
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ScrollArea className="h-[300px] pr-4">
+                            <div className="space-y-2">
+                              {selectedImprovement.scoreData.map((entry, index) => {
+                                const prevScore = index > 0 ? selectedImprovement.scoreData[index - 1].score : entry.score;
+                                const change = entry.score - prevScore;
+                                const changePercent = ((change / prevScore) * 100).toFixed(1);
+                                
+                                return (
+                                  <motion.div
+                                    key={`${entry.fullDate}-${index}`}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className={cn(
+                                      "flex items-center justify-between p-2 rounded-lg",
+                                      "border border-border/50",
+                                      "bg-card/50 dark:bg-card/10",
+                                      "hover:bg-accent/50 dark:hover:bg-accent/20",
+                                      "transition-colors"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className={cn(
+                                        "w-8 h-8 rounded-full flex items-center justify-center",
+                                        "bg-gradient-to-br backdrop-blur-sm",
+                                        change > 0 
+                                          ? "from-green-500/20 to-emerald-500/20 text-green-500 dark:from-green-500/10 dark:to-emerald-500/10 dark:text-green-400"
+                                          : change < 0
+                                          ? "from-red-500/20 to-rose-500/20 text-red-500 dark:from-red-500/10 dark:to-rose-500/10 dark:text-red-400"
+                                          : "from-gray-500/20 to-slate-500/20 text-gray-500 dark:from-gray-500/10 dark:to-slate-500/10 dark:text-gray-400"
+                                      )}>
+                                        {change > 0 ? <TrendingUp className="h-4 w-4" /> :
+                                         change < 0 ? <TrendingDown className="h-4 w-4" /> :
+                                         <Minus className="h-4 w-4" />}
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-foreground flex items-center gap-2">
+                                          <span>{entry.date}</span>
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                          Score: {entry.score} points
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className={cn(
+                                        "font-medium",
+                                        change > 0 
+                                          ? "text-green-600 dark:text-green-400" 
+                                          : change < 0 
+                                          ? "text-red-600 dark:text-red-400" 
+                                          : "text-gray-600 dark:text-gray-400"
+                                      )}>
+                                        {change > 0 ? "+" : ""}{change}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {change !== 0 ? `${changePercent}%` : "No change"}
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </motion.div>
+                </div>
+
+                {/* Right Side - Chart */}
+                <div className="flex-1 p-6">
+                  <motion.div variants={fadeInScale}>
+                    <Card className="h-full">
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <TrendingUp className="h-5 w-5 text-green-500" />
+                          Score Progression
+                        </CardTitle>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Badge variant="outline" className="bg-background">
+                            Last {selectedImprovement.scoreData.length} entries
+                          </Badge>
+                        </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
-                          +{selectedImprovement.improvement}
-                        </div>
-                        <p className="text-sm text-muted-foreground">Points increased</p>
+                        <ChartContainer
+                          config={{
+                            score: {
+                              label: "Score",
+                            },
+                          }}
+                        >
+                          <ResponsiveContainer width="100%" height={350}>
+                            <ComposedChart
+                              data={selectedImprovement.scoreData}
+                              margin={{
+                                top: 30,
+                                right: 20,
+                                bottom: 40,
+                                left: 20,
+                              }}
+                            >
+                              <defs>
+                                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                                </linearGradient>
+                                <linearGradient id="positiveGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="hsl(142.1 76.2% 36.3%)" stopOpacity={0.8} />
+                                  <stop offset="100%" stopColor="hsl(142.1 76.2% 36.3%)" stopOpacity={0.3} />
+                                </linearGradient>
+                                <linearGradient id="negativeGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="hsl(346.8 77.2% 49.8%)" stopOpacity={0.8} />
+                                  <stop offset="100%" stopColor="hsl(346.8 77.2% 49.8%)" stopOpacity={0.3} />
+                                </linearGradient>
+                              </defs>
+                              
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
+                              
+                              <XAxis 
+                                dataKey="date" 
+                                angle={-45} 
+                                textAnchor="end" 
+                                height={60} 
+                                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                                interval={0}
+                              />
+                              
+                              <YAxis 
+                                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                                width={50}
+                              />
+
+                              <ChartTooltip
+                                content={({ active, payload }) => {
+                                  if (!active || !payload?.length) return null;
+                                  const data = payload[0].payload;
+                                  return (
+                                    <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="flex flex-col">
+                                          <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                            Date
+                                          </span>
+                                          <span className="font-bold text-sm">{data.date}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                          <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                            Score
+                                          </span>
+                                          <span className="font-bold text-sm">{data.score} points</span>
+                                        </div>
+                                        <div className="flex flex-col col-span-2">
+                                          <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                            Change
+                                          </span>
+                                          <span className={cn(
+                                            "font-bold text-sm",
+                                            data.improvement > 0 ? "text-green-500" : 
+                                            data.improvement < 0 ? "text-red-500" : "text-muted-foreground"
+                                          )}>
+                                            {data.improvement > 0 ? "+" : ""}{data.improvement} points
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }}
+                              />
+
+                              <Bar dataKey="score" barSize={40}>
+                                {selectedImprovement.scoreData.map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${entry.fullDate}-${index}`}
+                                    fill={`url(#${
+                                      entry.improvement > 0
+                                        ? "positiveGradient"
+                                        : entry.improvement < 0
+                                        ? "negativeGradient"
+                                        : "barGradient"
+                                    })`}
+                                  />
+                                ))}
+                              </Bar>
+
+                              <Line
+                                type="monotone"
+                                dataKey="score"
+                                stroke="hsl(var(--primary))"
+                                strokeWidth={2}
+                                dot={{
+                                  fill: "hsl(var(--background))",
+                                  stroke: "hsl(var(--primary))",
+                                  strokeWidth: 2,
+                                  r: 4,
+                                }}
+                                activeDot={{
+                                  fill: "hsl(var(--primary))",
+                                  stroke: "hsl(var(--background))",
+                                  strokeWidth: 2,
+                                  r: 6,
+                                }}
+                              />
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        </ChartContainer>
                       </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Growth Rate</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-blue-600">
-                          {selectedImprovement.percentageIncrease}%
+                      <CardFooter className="flex-col items-start gap-2 text-sm">
+                        <div className="flex items-center gap-2 font-medium">
+                          {selectedImprovement.percentageIncrease > 0 ? (
+                            <>
+                              <TrendingUp className="h-4 w-4 text-green-500" />
+                              <span>Trending up by {selectedImprovement.percentageIncrease.toFixed(1)}%</span>
+                            </>
+                          ) : (
+                            <>
+                              <Bell className="h-4 w-4 text-orange-500" />
+                              <span>Maintaining steady progress</span>
+                            </>
+                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground">Percentage increase</p>
-                      </CardContent>
+                      </CardFooter>
                     </Card>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <h4 className="font-medium mb-2">Achievement Date</h4>
-                    <p className="text-muted-foreground">{selectedImprovement.date}</p>
-                  </div>
+                  </motion.div>
                 </div>
               </div>
             )}
 
-            <DialogFooter>
-              <ShinyButton 
-                onClick={() => {
-                  setIsImprovementDialogOpen(false);
-                  setSelectedImprovement(null);
-                }}
-                className="w-full"
-              >
-                Close
-              </ShinyButton>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            <DrawerFooter className="border-t mt-auto py-2">
+              <DrawerClose asChild>
+                <ShinyButton className="w-full">
+                  Close
+                </ShinyButton>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
 
         <Drawer open={isLeaderboardOpen} onOpenChange={setIsLeaderboardOpen}>
           <DrawerContent className="max-h-[96vh]">
@@ -1112,7 +1654,7 @@ export function Leaderboard() {
                 Sadhana Leaderboard 🏆
               </DrawerTitle>
               <DrawerDescription className="text-center">
-                All devotees' scores for different time periods
+                Week {currentWeek} Rankings & Overall Statistics
               </DrawerDescription>
             </DrawerHeader>
 
@@ -1127,35 +1669,37 @@ export function Leaderboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {leaderboardData.map((entry, index) => (
-                    <TableRow key={entry.devotee_name} className="group hover:bg-muted/50">
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {index < 3 && (
-                            <span className="text-lg">
-                              {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
-                            </span>
-                          )}
-                          {entry.devotee_name}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="outline" className="group-hover:bg-background">
-                          {entry.weekly_score}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="outline" className="group-hover:bg-background">
-                          {entry.monthly_score}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="outline" className="group-hover:bg-background">
-                          {entry.total_score}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {leaderboardData
+                    .sort((a, b) => b.weekly_score - a.weekly_score)
+                    .map((entry, index) => (
+                      <TableRow key={entry.devotee_name} className="group hover:bg-muted/50">
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {index < 3 && (
+                              <span className="text-lg">
+                                {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                              </span>
+                            )}
+                            {entry.devotee_name}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="group-hover:bg-background">
+                            {entry.weekly_score}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="group-hover:bg-background">
+                            {entry.monthly_score}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="group-hover:bg-background">
+                            {entry.total_score}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </ScrollArea>
