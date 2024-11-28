@@ -447,16 +447,15 @@ interface ScoreData {
   improvement: number;
 }
 
-// Add this helper function near the top
+// Update the formatDate helper function
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  const date = new Date(dateStr);
+  return `${date.toLocaleDateString('en-US', {
+    weekday: 'short',
+  })},${date.getDate()}`;
 }
 
-// Add this function near your other fetch functions
+// Update the fetchScoreData function
 const fetchScoreData = async (devoteeName: string) => {
   const { data, error } = await supabase
     .from('sadhna_report_view')
@@ -470,18 +469,22 @@ const fetchScoreData = async (devoteeName: string) => {
     return [];
   }
 
-  return data.map((entry, index) => ({
-    id: `${entry.date}-${index}`,
-    date: new Date(entry.date).toLocaleDateString('en-US', { 
-      month: 'short',
-      day: 'numeric'
-    }),
-    fullDate: formatDate(entry.date),
-    score: entry.total_score,
-    improvement: data.indexOf(entry) < data.length - 1 
-      ? entry.total_score - data[data.indexOf(entry) + 1].total_score 
-      : 0,
-  })).reverse();
+  return data.map((entry, index) => {
+    const date = new Date(entry.date);
+    const formattedDate = `${date.toLocaleDateString('en-US', {
+      weekday: 'short',
+    })},${date.getDate()}`; // Format: "Mon,24"
+
+    return {
+      id: `${entry.date}-${index}`,
+      date: formattedDate,
+      fullDate: formattedDate, // Keep consistent format
+      score: entry.total_score,
+      improvement: data.indexOf(entry) < data.length - 1 
+        ? entry.total_score - data[data.indexOf(entry) + 1].total_score 
+        : 0,
+    };
+  }).reverse();
 };
 
 export function Leaderboard() {
@@ -698,21 +701,29 @@ export function Leaderboard() {
         .limit(7);
 
       if (data && data.length > 0) {
-        const scoreData: ScoreData[] = data.map((entry, index) => ({
-          id: `${entry.date}-${index}`,
-          date: new Date(entry.date).toLocaleDateString('en-US', { 
-            weekday: 'short'
-          }),
-          shortDate: new Date(entry.date).toLocaleDateString('en-US', { 
-            month: 'short',
-            day: 'numeric'
-          }),
-          fullDate: entry.date,
-          score: entry.total_score,
-          improvement: data.indexOf(entry) < data.length - 1 
-            ? entry.total_score - data[data.indexOf(entry) + 1].total_score 
-            : 0
-        })).reverse();
+        // Format the date for the latest entry
+        const latestDate = new Date(data[0].date);
+        const formattedDate = `${latestDate.toLocaleDateString('en-US', {
+          weekday: 'short',
+        })},${latestDate.getDate()}`; // Format: "Mon,24"
+
+        const scoreData: ScoreData[] = data.map((entry, index) => {
+          const date = new Date(entry.date);
+          const entryFormattedDate = `${date.toLocaleDateString('en-US', {
+            weekday: 'short',
+          })},${date.getDate()}`; // Format: "Mon,24"
+
+          return {
+            id: `${entry.date}-${index}`,
+            date: entryFormattedDate,
+            shortDate: entryFormattedDate,
+            fullDate: entryFormattedDate,
+            score: entry.total_score,
+            improvement: data.indexOf(entry) < data.length - 1 
+              ? entry.total_score - data[data.indexOf(entry) + 1].total_score 
+              : 0
+          };
+        }).reverse();
 
         const latestScore = data[0].total_score;
         const previousScores = data.slice(1);
@@ -727,7 +738,7 @@ export function Leaderboard() {
           devotee_name: devoteeName,
           improvement,
           percentageIncrease,
-          date: new Date(data[0].date).toLocaleDateString(),
+          date: formattedDate,
           scoreData,
         });
         setIsImprovementDialogOpen(true);
@@ -1549,9 +1560,9 @@ export function Leaderboard() {
                                       dataKey="date" 
                                       angle={-45} 
                                       textAnchor="end" 
-                                      height={40}
+                                      height={60}
                                       tick={{ 
-                                        fontSize: 9,
+                                        fontSize: 20, // Increased font size
                                         fill: 'hsl(var(--muted-foreground))'
                                       }}
                                       interval={0}
@@ -1564,10 +1575,10 @@ export function Leaderboard() {
                                     
                                     <YAxis 
                                       tick={{ 
-                                        fontSize: 9,
+                                        fontSize: 12, // Increased font size
                                         fill: 'hsl(var(--muted-foreground))'
                                       }}
-                                      width={30}
+                                      width={35} // Slightly increased to accommodate larger font
                                     />
 
                                     <ChartTooltip
@@ -1581,7 +1592,7 @@ export function Leaderboard() {
                                                 <span className="text-[0.65rem] uppercase text-muted-foreground">
                                                   Date
                                                 </span>
-                                                <span className="font-bold">{data.fullDate}</span>
+                                                <span className="font-bold">{data.date}</span> {/* Using the short date format */}
                                               </div>
                                               <div className="flex flex-col">
                                                 <span className="text-[0.65rem] uppercase text-muted-foreground">
