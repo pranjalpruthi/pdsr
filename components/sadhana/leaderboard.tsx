@@ -442,8 +442,18 @@ const positionStyles = {
 interface ScoreData {
   id: string;
   date: string;
+  fullDate: string;
   score: number;
   improvement: number;
+}
+
+// Add this helper function near the top
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
 }
 
 // Add this function near your other fetch functions
@@ -463,13 +473,10 @@ const fetchScoreData = async (devoteeName: string) => {
   return data.map((entry, index) => ({
     id: `${entry.date}-${index}`,
     date: new Date(entry.date).toLocaleDateString('en-US', { 
-      weekday: 'short',
-    }),
-    shortDate: new Date(entry.date).toLocaleDateString('en-US', { 
       month: 'short',
-      day: 'numeric',
+      day: 'numeric'
     }),
-    fullDate: entry.date,
+    fullDate: formatDate(entry.date),
     score: entry.total_score,
     improvement: data.indexOf(entry) < data.length - 1 
       ? entry.total_score - data[data.indexOf(entry) + 1].total_score 
@@ -1454,7 +1461,7 @@ export function Leaderboard() {
                                           </div>
                                           <div>
                                             <div className="font-medium text-foreground flex items-center gap-2">
-                                              <span>{entry.date}</span>
+                                              <span>{entry.fullDate}</span>
                                             </div>
                                             <div className="text-sm text-muted-foreground">
                                               Score: {entry.score}
@@ -1574,7 +1581,7 @@ export function Leaderboard() {
                                                 <span className="text-[0.65rem] uppercase text-muted-foreground">
                                                   Date
                                                 </span>
-                                                <span className="font-bold">{data.date}</span>
+                                                <span className="font-bold">{data.fullDate}</span>
                                               </div>
                                               <div className="flex flex-col">
                                                 <span className="text-[0.65rem] uppercase text-muted-foreground">
