@@ -442,7 +442,6 @@ const positionStyles = {
 interface ScoreData {
   id: string;
   date: string;
-  fullDate: string;
   score: number;
   improvement: number;
 }
@@ -1309,341 +1308,361 @@ export function Leaderboard() {
 
         {/* Dialogs */}
         <Drawer open={isImprovementDialogOpen} onOpenChange={setIsImprovementDialogOpen}>
-          <DrawerContent className="max-h-[90vh]">
-            <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-red-500/10 py-3">
-              <DrawerTitle className="text-xl font-bold flex items-center gap-3">
-                <Sparkles className="h-6 w-6 text-yellow-500" />
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <span>Improvement Details</span>
-                    <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                      {selectedImprovement?.devotee_name}
-                    </Badge>
+          <DrawerContent>
+            <div className="max-h-[90vh] flex flex-col">
+              <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-red-500/10 py-3 flex-none">
+                <DrawerTitle className="text-xl font-bold flex items-center gap-3">
+                  <Sparkles className="h-6 w-6 text-yellow-500" />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span>Improvement Details</span>
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                        {selectedImprovement?.devotee_name}
+                      </Badge>
+                    </div>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {selectedImprovement?.date}
+                    </span>
                   </div>
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {selectedImprovement?.date}
-                  </span>
-                </div>
-              </DrawerTitle>
-            </DrawerHeader>
+                </DrawerTitle>
+              </DrawerHeader>
 
-            {selectedImprovement && (
-              <div className="flex flex-col lg:flex-row flex-1">
-                {/* Left Side - Details & List */}
-                <div className="flex-1 p-6 border-r overflow-y-auto">
-                  <motion.div variants={staggerContainer} className="space-y-6">
-                    {/* Stats Cards */}
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {/* Improvement Card */}
-                      <motion.div variants={cardVariants}>
-                        <Card className="overflow-hidden">
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-sm">Improvement</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{
-                                type: "spring",
-                                stiffness: 200,
-                                damping: 15,
-                                delay: 0.2
-                              }}
-                              className="text-2xl font-bold text-green-600"
-                            >
-                              +{selectedImprovement.improvement.toFixed(1)}
-                            </motion.div>
-                            <p className="text-sm text-muted-foreground">Points increased</p>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                      
-                      {/* Growth Rate Card */}
-                      <motion.div variants={cardVariants}>
-                        <Card className="overflow-hidden">
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-sm">Growth Rate</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{
-                                type: "spring",
-                                stiffness: 200,
-                                damping: 15,
-                                delay: 0.4
-                              }}
-                              className="text-2xl font-bold text-blue-600"
-                            >
-                              {selectedImprovement.percentageIncrease.toFixed(1)}%
-                            </motion.div>
-                            <p className="text-sm text-muted-foreground">Percentage increase</p>
-                          </CardContent>
-                        </Card>
+              <div className="flex-1 overflow-y-auto">
+                {selectedImprovement && (
+                  <div className="flex flex-col lg:flex-row">
+                    {/* Left Side - Details & List */}
+                    <div className="flex-1 p-6 lg:border-r">
+                      <motion.div variants={staggerContainer} className="space-y-6">
+                        {/* Stats Cards */}
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {/* Improvement Card */}
+                          <motion.div variants={cardVariants}>
+                            <Card className="overflow-hidden">
+                              <CardHeader className="pb-2">
+                                <CardTitle className="text-sm">Improvement</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{
+                                    type: "spring",
+                                    stiffness: 200,
+                                    damping: 15,
+                                    delay: 0.2
+                                  }}
+                                  className="text-2xl font-bold text-green-600"
+                                >
+                                  +{selectedImprovement.improvement.toFixed(1)}
+                                </motion.div>
+                                <p className="text-sm text-muted-foreground">Points increased</p>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                          
+                          {/* Growth Rate Card */}
+                          <motion.div variants={cardVariants}>
+                            <Card className="overflow-hidden">
+                              <CardHeader className="pb-2">
+                                <CardTitle className="text-sm">Growth Rate</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{
+                                    type: "spring",
+                                    stiffness: 200,
+                                    damping: 15,
+                                    delay: 0.4
+                                  }}
+                                  className="text-2xl font-bold text-blue-600"
+                                >
+                                  {selectedImprovement.percentageIncrease.toFixed(1)}%
+                                </motion.div>
+                                <p className="text-sm text-muted-foreground">Percentage increase</p>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        </div>
+
+                        {/* Quote Card - Moved here */}
+                        <motion.div variants={fadeInScale}>
+                          <Card className="bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900/20">
+                            <CardContent className="pt-6">
+                              <BlockQuote
+                                quote="Every step forward in Krishna consciousness is eternally preserved and never lost."
+                                author="Srila Prabhupada"
+                                className="text-purple-800 dark:text-purple-200"
+                              />
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+
+                        {/* Score List */}
+                        <motion.div variants={cardVariants}>
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                <ListIcon className="h-4 w-4" />
+                                Score History
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <ScrollArea className="h-[300px] pr-4">
+                                <div className="space-y-2">
+                                  {selectedImprovement.scoreData.map((entry, index) => {
+                                    const prevScore = index > 0 ? selectedImprovement.scoreData[index - 1].score : entry.score;
+                                    const change = entry.score - prevScore;
+                                    const changePercent = ((change / prevScore) * 100).toFixed(1);
+                                    
+                                    return (
+                                      <motion.div
+                                        key={`${entry.date}-${index}`}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.1 }}
+                                        className={cn(
+                                          "flex items-center justify-between p-2 rounded-lg",
+                                          "border border-border/50",
+                                          "bg-card/50 dark:bg-card/10",
+                                          "hover:bg-accent/50 dark:hover:bg-accent/20",
+                                          "transition-colors"
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <div className={cn(
+                                            "w-8 h-8 rounded-full flex items-center justify-center",
+                                            "bg-gradient-to-br backdrop-blur-sm",
+                                            change > 0 
+                                              ? "from-green-500/20 to-emerald-500/20 text-green-500 dark:from-green-500/10 dark:to-emerald-500/10 dark:text-green-400"
+                                              : change < 0
+                                              ? "from-red-500/20 to-rose-500/20 text-red-500 dark:from-red-500/10 dark:to-rose-500/10 dark:text-red-400"
+                                              : "from-gray-500/20 to-slate-500/20 text-gray-500 dark:from-gray-500/10 dark:to-slate-500/10 dark:text-gray-400"
+                                          )}>
+                                            {change > 0 ? <TrendingUp className="h-4 w-4" /> :
+                                             change < 0 ? <TrendingDown className="h-4 w-4" /> :
+                                             <Minus className="h-4 w-4" />}
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-foreground flex items-center gap-2">
+                                              <span>{entry.date}</span>
+                                            </div>
+                                            <div className="text-sm text-muted-foreground">
+                                              Score: {entry.score}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className={cn(
+                                            "font-medium",
+                                            change > 0 
+                                              ? "text-green-600 dark:text-green-400" 
+                                              : change < 0 
+                                              ? "text-red-600 dark:text-red-400" 
+                                              : "text-gray-600 dark:text-gray-400"
+                                          )}>
+                                            {change > 0 ? "+" : ""}{change}
+                                          </div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {change !== 0 ? `${changePercent}%` : "No change"}
+                                          </div>
+                                        </div>
+                                      </motion.div>
+                                    );
+                                  })}
+                                </div>
+                              </ScrollArea>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
                       </motion.div>
                     </div>
 
-                    {/* Quote Card - Moved here */}
-                    <motion.div variants={fadeInScale}>
-                      <Card className="bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900/20">
-                        <CardContent className="pt-6">
-                          <BlockQuote
-                            quote="Every step forward in Krishna consciousness is eternally preserved and never lost."
-                            author="Srila Prabhupada"
-                            className="text-purple-800 dark:text-purple-200"
-                          />
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-
-                    {/* Score List */}
-                    <motion.div variants={cardVariants}>
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <ListIcon className="h-4 w-4" />
-                            Score History
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ScrollArea className="h-[300px] pr-4">
-                            <div className="space-y-2">
-                              {selectedImprovement.scoreData.map((entry, index) => {
-                                const prevScore = index > 0 ? selectedImprovement.scoreData[index - 1].score : entry.score;
-                                const change = entry.score - prevScore;
-                                const changePercent = ((change / prevScore) * 100).toFixed(1);
-                                
-                                return (
-                                  <motion.div
-                                    key={`${entry.fullDate}-${index}`}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    className={cn(
-                                      "flex items-center justify-between p-2 rounded-lg",
-                                      "border border-border/50",
-                                      "bg-card/50 dark:bg-card/10",
-                                      "hover:bg-accent/50 dark:hover:bg-accent/20",
-                                      "transition-colors"
-                                    )}
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <div className={cn(
-                                        "w-8 h-8 rounded-full flex items-center justify-center",
-                                        "bg-gradient-to-br backdrop-blur-sm",
-                                        change > 0 
-                                          ? "from-green-500/20 to-emerald-500/20 text-green-500 dark:from-green-500/10 dark:to-emerald-500/10 dark:text-green-400"
-                                          : change < 0
-                                          ? "from-red-500/20 to-rose-500/20 text-red-500 dark:from-red-500/10 dark:to-rose-500/10 dark:text-red-400"
-                                          : "from-gray-500/20 to-slate-500/20 text-gray-500 dark:from-gray-500/10 dark:to-slate-500/10 dark:text-gray-400"
-                                      )}>
-                                        {change > 0 ? <TrendingUp className="h-4 w-4" /> :
-                                         change < 0 ? <TrendingDown className="h-4 w-4" /> :
-                                         <Minus className="h-4 w-4" />}
-                                      </div>
-                                      <div>
-                                        <div className="font-medium text-foreground flex items-center gap-2">
-                                          <span>{entry.date}</span>
-                                        </div>
-                                        <div className="text-sm text-muted-foreground">
-                                          Score: {entry.score} points
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className={cn(
-                                        "font-medium",
-                                        change > 0 
-                                          ? "text-green-600 dark:text-green-400" 
-                                          : change < 0 
-                                          ? "text-red-600 dark:text-red-400" 
-                                          : "text-gray-600 dark:text-gray-400"
-                                      )}>
-                                        {change > 0 ? "+" : ""}{change}
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {change !== 0 ? `${changePercent}%` : "No change"}
-                                      </div>
-                                    </div>
-                                  </motion.div>
-                                );
-                              })}
+                    {/* Right Side - Chart */}
+                    <div className="flex-1 p-6">
+                      <motion.div variants={fadeInScale}>
+                        <Card className="h-full">
+                          <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              <TrendingUp className="h-5 w-5 text-green-500" />
+                              Score Progression
+                            </CardTitle>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Badge variant="outline" className="bg-background">
+                                Last {selectedImprovement.scoreData.length} entries
+                              </Badge>
                             </div>
-                          </ScrollArea>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  </motion.div>
-                </div>
-
-                {/* Right Side - Chart */}
-                <div className="flex-1 p-6">
-                  <motion.div variants={fadeInScale}>
-                    <Card className="h-full">
-                      <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5 text-green-500" />
-                          Score Progression
-                        </CardTitle>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Badge variant="outline" className="bg-background">
-                            Last {selectedImprovement.scoreData.length} entries
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <ChartContainer
-                          config={{
-                            score: {
-                              label: "Score",
-                            },
-                          }}
-                        >
-                          <ResponsiveContainer width="100%" height={350}>
-                            <ComposedChart
-                              data={selectedImprovement.scoreData}
-                              margin={{
-                                top: 30,
-                                right: 20,
-                                bottom: 40,
-                                left: 20,
+                          </CardHeader>
+                          <CardContent>
+                            <ChartContainer
+                              config={{
+                                score: {
+                                  label: "Score",
+                                },
                               }}
                             >
-                              <defs>
-                                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                </linearGradient>
-                                <linearGradient id="positiveGradient" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor="hsl(142.1 76.2% 36.3%)" stopOpacity={0.8} />
-                                  <stop offset="100%" stopColor="hsl(142.1 76.2% 36.3%)" stopOpacity={0.3} />
-                                </linearGradient>
-                                <linearGradient id="negativeGradient" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor="hsl(346.8 77.2% 49.8%)" stopOpacity={0.8} />
-                                  <stop offset="100%" stopColor="hsl(346.8 77.2% 49.8%)" stopOpacity={0.3} />
-                                </linearGradient>
-                              </defs>
-                              
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
-                              
-                              <XAxis 
-                                dataKey="date" 
-                                angle={-45} 
-                                textAnchor="end" 
-                                height={60} 
-                                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                                interval={0}
-                              />
-                              
-                              <YAxis 
-                                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                                width={50}
-                              />
+                              <div className="h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <ComposedChart
+                                    data={selectedImprovement.scoreData}
+                                    margin={{
+                                      top: 10,
+                                      right: 5,
+                                      left: 5,
+                                      bottom: 20,
+                                    }}
+                                  >
+                                    <defs>
+                                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                                      </linearGradient>
+                                      <linearGradient id="positiveGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="hsl(142.1 76.2% 36.3%)" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="hsl(142.1 76.2% 36.3%)" stopOpacity={0.3} />
+                                      </linearGradient>
+                                      <linearGradient id="negativeGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="hsl(346.8 77.2% 49.8%)" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="hsl(346.8 77.2% 49.8%)" stopOpacity={0.3} />
+                                      </linearGradient>
+                                    </defs>
+                                    
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
+                                    
+                                    <XAxis 
+                                      dataKey="date" 
+                                      angle={-45} 
+                                      textAnchor="end" 
+                                      height={40}
+                                      tick={{ 
+                                        fontSize: 9,
+                                        fill: 'hsl(var(--muted-foreground))'
+                                      }}
+                                      interval={0}
+                                      dy={8}
+                                      tickFormatter={(value, index) => {
+                                        if (window.innerWidth < 640 && index % 2 !== 0) return '';
+                                        return value;
+                                      }}
+                                    />
+                                    
+                                    <YAxis 
+                                      tick={{ 
+                                        fontSize: 9,
+                                        fill: 'hsl(var(--muted-foreground))'
+                                      }}
+                                      width={30}
+                                    />
 
-                              <ChartTooltip
-                                content={({ active, payload }) => {
-                                  if (!active || !payload?.length) return null;
-                                  const data = payload[0].payload;
-                                  return (
-                                    <div className="rounded-lg border bg-background p-2 shadow-sm">
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div className="flex flex-col">
-                                          <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                            Date
-                                          </span>
-                                          <span className="font-bold text-sm">{data.date}</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                          <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                            Score
-                                          </span>
-                                          <span className="font-bold text-sm">{data.score} points</span>
-                                        </div>
-                                        <div className="flex flex-col col-span-2">
-                                          <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                            Change
-                                          </span>
-                                          <span className={cn(
-                                            "font-bold text-sm",
-                                            data.improvement > 0 ? "text-green-500" : 
-                                            data.improvement < 0 ? "text-red-500" : "text-muted-foreground"
-                                          )}>
-                                            {data.improvement > 0 ? "+" : ""}{data.improvement} points
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                }}
-                              />
+                                    <ChartTooltip
+                                      content={({ active, payload }) => {
+                                        if (!active || !payload?.length) return null;
+                                        const data = payload[0].payload;
+                                        return (
+                                          <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                            <div className="grid grid-cols-2 gap-1 text-xs sm:text-sm">
+                                              <div className="flex flex-col">
+                                                <span className="text-[0.65rem] uppercase text-muted-foreground">
+                                                  Date
+                                                </span>
+                                                <span className="font-bold">{data.date}</span>
+                                              </div>
+                                              <div className="flex flex-col">
+                                                <span className="text-[0.65rem] uppercase text-muted-foreground">
+                                                  Score
+                                                </span>
+                                                <span className="font-bold">{data.score}</span>
+                                              </div>
+                                              <div className="flex flex-col col-span-2">
+                                                <span className="text-[0.65rem] uppercase text-muted-foreground">
+                                                  Change
+                                                </span>
+                                                <span className={cn(
+                                                  "font-bold",
+                                                  data.improvement > 0 ? "text-green-500" : 
+                                                  data.improvement < 0 ? "text-red-500" : "text-muted-foreground"
+                                                )}>
+                                                  {data.improvement > 0 ? "+" : ""}{data.improvement} points
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      }}
+                                    />
 
-                              <Bar dataKey="score" barSize={40}>
-                                {selectedImprovement.scoreData.map((entry, index) => (
-                                  <Cell
-                                    key={`cell-${entry.fullDate}-${index}`}
-                                    fill={`url(#${
-                                      entry.improvement > 0
-                                        ? "positiveGradient"
-                                        : entry.improvement < 0
-                                        ? "negativeGradient"
-                                        : "barGradient"
-                                    })`}
-                                  />
-                                ))}
-                              </Bar>
+                                    <Bar 
+                                      dataKey="score" 
+                                      barSize={window.innerWidth < 640 ? 15 : 20}
+                                    >
+                                      {selectedImprovement.scoreData.map((entry, index) => (
+                                        <Cell
+                                          key={`cell-${entry.date}-${index}`}
+                                          fill={`url(#${
+                                            entry.improvement > 0
+                                              ? "positiveGradient"
+                                              : entry.improvement < 0
+                                              ? "negativeGradient"
+                                              : "barGradient"
+                                          })`}
+                                        />
+                                      ))}
+                                    </Bar>
 
-                              <Line
-                                type="monotone"
-                                dataKey="score"
-                                stroke="hsl(var(--primary))"
-                                strokeWidth={2}
-                                dot={{
-                                  fill: "hsl(var(--background))",
-                                  stroke: "hsl(var(--primary))",
-                                  strokeWidth: 2,
-                                  r: 4,
-                                }}
-                                activeDot={{
-                                  fill: "hsl(var(--primary))",
-                                  stroke: "hsl(var(--background))",
-                                  strokeWidth: 2,
-                                  r: 6,
-                                }}
-                              />
-                            </ComposedChart>
-                          </ResponsiveContainer>
-                        </ChartContainer>
-                      </CardContent>
-                      <CardFooter className="flex-col items-start gap-2 text-sm">
-                        <div className="flex items-center gap-2 font-medium">
-                          {selectedImprovement.percentageIncrease > 0 ? (
-                            <>
-                              <TrendingUp className="h-4 w-4 text-green-500" />
-                              <span>Trending up by {selectedImprovement.percentageIncrease.toFixed(1)}%</span>
-                            </>
-                          ) : (
-                            <>
-                              <Bell className="h-4 w-4 text-orange-500" />
-                              <span>Maintaining steady progress</span>
-                            </>
-                          )}
-                        </div>
-                      </CardFooter>
-                    </Card>
-                  </motion.div>
-                </div>
+                                    <Line
+                                      type="monotone"
+                                      dataKey="score"
+                                      stroke="hsl(var(--primary))"
+                                      strokeWidth={1.5}
+                                      dot={{
+                                        fill: "hsl(var(--background))",
+                                        stroke: "hsl(var(--primary))",
+                                        strokeWidth: 1.5,
+                                        r: 2,
+                                      }}
+                                      activeDot={{
+                                        fill: "hsl(var(--primary))",
+                                        stroke: "hsl(var(--background))",
+                                        strokeWidth: 1.5,
+                                        r: 4,
+                                      }}
+                                    />
+                                  </ComposedChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </ChartContainer>
+                          </CardContent>
+                          <CardFooter className="flex-col items-start gap-2 text-sm">
+                            <div className="flex items-center gap-2 font-medium">
+                              {selectedImprovement.percentageIncrease > 0 ? (
+                                <>
+                                  <TrendingUp className="h-4 w-4 text-green-500" />
+                                  <span>Trending up by {selectedImprovement.percentageIncrease.toFixed(1)}%</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Bell className="h-4 w-4 text-orange-500" />
+                                  <span>Maintaining steady progress</span>
+                                </>
+                              )}
+                            </div>
+                          </CardFooter>
+                        </Card>
+                      </motion.div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
 
-            <DrawerFooter className="border-t mt-auto py-2">
-              <DrawerClose asChild>
-                <ShinyButton className="w-full">
-                  Close
-                </ShinyButton>
-              </DrawerClose>
-            </DrawerFooter>
+              <DrawerFooter className="border-t mt-auto py-2 flex-none">
+                <DrawerClose asChild>
+                  <ShinyButton className="w-full">
+                    Close
+                  </ShinyButton>
+                </DrawerClose>
+              </DrawerFooter>
+            </div>
           </DrawerContent>
         </Drawer>
 
