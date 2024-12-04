@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
@@ -160,6 +160,25 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const [step, setStep] = useState<number>(STEPS.PERSONAL);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  // Add dimension tracking
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const { offsetWidth, offsetHeight } = containerRef.current;
+        setDimensions({ width: offsetWidth, height: offsetHeight });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+
+    return () => {
+      window.removeEventListener("resize", updateDimensions);
+    };
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -375,338 +394,369 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
 
   return (
     <div className="pt-6">
-      <Card className="p-2 mt-6">
-        <CardHeader className="pb-6 pt-8 text-center space-y-3">
-          <CardTitle className="flex items-center justify-center gap-3 text-2xl font-bold">
-            <span className="animate-pulse">📝</span>
-            Fill Your Daily Sadhna Report
-            <span className="animate-pulse">📿</span>
-          </CardTitle>
-          <CardDescription className="text-center pt-3 text-base">
-            Hare Krishna! Please fill in your daily spiritual activities
-          </CardDescription>
-          <div className="space-y-2">
-            <Progress value={progress} className="h-2" />
-            <p className="text-sm text-muted-foreground">
-              Step {step + 1} of {Object.keys(STEPS).length}: {STEPS_TITLES[step]}
-            </p>
-          </div>
-        </CardHeader>
+      <Card 
+        ref={containerRef}
+        className="p-2 mt-6 relative z-10 size-full rounded-[20px]"
+        style={{
+          "--border-size": "2px",
+          "--border-radius": "20px",
+          "--neon-first-color": "#ff00aa",
+          "--neon-second-color": "#00FFF1",
+          "--card-width": `${dimensions.width}px`,
+          "--card-height": `${dimensions.height}px`,
+          "--card-content-radius": "18px",
+          "--pseudo-element-width": `calc(100% + 4px)`,
+          "--pseudo-element-height": `calc(100% + 4px)`,
+          "--after-blur": `${Math.max(dimensions.width / 12, 15)}px`,
+        } as React.CSSProperties}
+      >
+        <div
+          className={cn(
+            "relative size-full min-h-[inherit] rounded-[var(--card-content-radius)] bg-gray-100 p-6",
+            "dark:bg-black",
+            "before:absolute before:inset-[-2px] before:-z-10 before:block",
+            "before:rounded-[var(--border-radius)] before:content-['']",
+            "before:bg-[linear-gradient(0deg,var(--neon-first-color),var(--neon-second-color))] before:bg-[length:100%_200%]",
+            "before:animate-background-position-spin",
+            "after:absolute after:inset-[-2px] after:-z-10 after:block",
+            "after:rounded-[var(--border-radius)] after:blur-[var(--after-blur)] after:content-['']",
+            "after:bg-[linear-gradient(0deg,var(--neon-first-color),var(--neon-second-color))] after:bg-[length:100%_200%]",
+            "after:opacity-40",
+            "after:animate-background-position-spin",
+          )}
+        >
+          <CardHeader className="pb-6 pt-8 text-center space-y-3">
+            <CardTitle className="flex items-center justify-center gap-3 text-2xl font-bold">
+              <span className="animate-pulse">📝</span>
+              Fill Your Daily Sadhna Report
+              <span className="animate-pulse">📿</span>
+            </CardTitle>
+            <CardDescription className="text-center pt-3 text-base">
+              Hare Krishna! Please fill in your daily spiritual activities
+            </CardDescription>
+            <div className="space-y-2">
+              <Progress value={progress} className="h-2" />
+              <p className="text-sm text-muted-foreground">
+                Step {step + 1} of {Object.keys(STEPS).length}: {STEPS_TITLES[step]}
+              </p>
+            </div>
+          </CardHeader>
 
-        <CardContent className="pt-2 pb-6 px-4 sm:px-6">
-          <Form {...form}>
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={step}
-                  initial={{ x: 50, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -50, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {step === STEPS.PERSONAL && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="date"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>📅 Date</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                      "w-full h-9 pl-3 text-left font-normal",
-                                      !field.value && "text-muted-foreground"
-                                    )}
-                                  >
-                                    {field.value ? (
-                                      format(field.value, "PPP")
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date) =>
-                                    date > new Date() || date < new Date("1900-01-01")
-                                  }
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="devotee_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>🙏 Devotee Name</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="h-9">
-                                  <SelectValue placeholder="Select devotee" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {devotees.map((devotee) => (
-                                  <SelectItem
-                                    key={devotee.devotee_id}
-                                    value={devotee.devotee_id.toString()}
-                                  >
-                                    {devotee.devotee_name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {step === STEPS.JAPA && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="before_7_am_japa_session"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>🌅 Before 7 am (Japa Session)</FormLabel>
-                            <FormControl>
-                              <NumberPicker
-                                value={field.value}
-                                onChange={field.onChange}
-                                label="Japa Session Rounds"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="before_7_am"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>🌄 Before 7 am</FormLabel>
-                            <FormControl>
-                              <NumberPicker
-                                value={field.value}
-                                onChange={field.onChange}
-                                label="Before 7 am Rounds"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="from_7_to_9_am"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>🕖 7 to 09 am</FormLabel>
-                            <FormControl>
-                              <NumberPicker
-                                value={field.value}
-                                onChange={field.onChange}
-                                label="7-9 am Rounds"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="after_9_am"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>🌞 After 9 am</FormLabel>
-                            <FormControl>
-                              <NumberPicker
-                                value={field.value}
-                                onChange={field.onChange}
-                                label="After 9 am Rounds"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {step === STEPS.READING && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="book_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>📚 Book Name</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="book_reading_time_min"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>📖 Book Reading Time (min)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {step === STEPS.LECTURE && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="lecture_speaker"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>🎤 Lecture Speaker</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="lecture_time_min"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>🕰️ Lecture Time (min)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {step === STEPS.SEVA && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="seva_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>🛠️ Seva Name</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="seva_time_min"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>⏳ Seva Time (min)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {step === STEPS.CONFIRM && (
-                    <ConfirmationStep values={form.getValues()} />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-
-              <div className="flex justify-between pt-4 space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleStepChange('prev')}
-                  disabled={step === 0}
-                >
-                  Previous
-                </Button>
-
-                {step === STEPS.CONFIRM ? (
-                  <Button 
-                    type="submit"
-                    disabled={isLoading}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      form.handleSubmit(onSubmit)(e);
-                    }}
+          <CardContent className="pt-2 pb-6 px-4 sm:px-6">
+            <Form {...form}>
+              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={step}
+                    initial={{ x: 50, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -50, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    {isLoading ? "Submitting..." : "Submit Report"}
-                  </Button>
-                ) : (
+                    {step === STEPS.PERSONAL && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="date"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>📅 Date</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant={"outline"}
+                                      className={cn(
+                                        "w-full h-9 pl-3 text-left font-normal",
+                                        !field.value && "text-muted-foreground"
+                                      )}
+                                    >
+                                      {field.value ? (
+                                        format(field.value, "PPP")
+                                      ) : (
+                                        <span>Pick a date</span>
+                                      )}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    disabled={(date) =>
+                                      date > new Date() || date < new Date("1900-01-01")
+                                    }
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="devotee_id"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>🙏 Devotee Name</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Select devotee" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {devotees.map((devotee) => (
+                                    <SelectItem
+                                      key={devotee.devotee_id}
+                                      value={devotee.devotee_id.toString()}
+                                    >
+                                      {devotee.devotee_name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {step === STEPS.JAPA && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="before_7_am_japa_session"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>🌅 Before 7 am (Japa Session)</FormLabel>
+                              <FormControl>
+                                <NumberPicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  label="Japa Session Rounds"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="before_7_am"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>🌄 Before 7 am</FormLabel>
+                              <FormControl>
+                                <NumberPicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  label="Before 7 am Rounds"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="from_7_to_9_am"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>🕖 7 to 09 am</FormLabel>
+                              <FormControl>
+                                <NumberPicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  label="7-9 am Rounds"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="after_9_am"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>🌞 After 9 am</FormLabel>
+                              <FormControl>
+                                <NumberPicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  label="After 9 am Rounds"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {step === STEPS.READING && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="book_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>📚 Book Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="book_reading_time_min"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>📖 Book Reading Time (min)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {step === STEPS.LECTURE && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="lecture_speaker"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>🎤 Lecture Speaker</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="lecture_time_min"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>🕰️ Lecture Time (min)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {step === STEPS.SEVA && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="seva_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>🛠️ Seva Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="seva_time_min"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>⏳ Seva Time (min)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {step === STEPS.CONFIRM && (
+                      <ConfirmationStep values={form.getValues()} />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+
+                <div className="flex justify-between pt-4 space-x-2">
                   <Button
                     type="button"
-                    onClick={() => handleStepChange('next')}
+                    variant="outline"
+                    onClick={() => handleStepChange('prev')}
+                    disabled={step === 0}
                   >
-                    Next
+                    Previous
                   </Button>
-                )}
-              </div>
-            </form>
-          </Form>
-        </CardContent>
+
+                  {step === STEPS.CONFIRM ? (
+                    <Button 
+                      type="submit"
+                      disabled={isLoading}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        form.handleSubmit(onSubmit)(e);
+                      }}
+                    >
+                      {isLoading ? "Submitting..." : "Submit Report"}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={() => handleStepChange('next')}
+                    >
+                      Next
+                    </Button>
+                  )}
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </div>
       </Card>
     </div>
   );
