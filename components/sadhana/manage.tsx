@@ -193,6 +193,7 @@ export function ManageSection() {
   const [deleteReportId, setDeleteReportId] = useState<string>("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const [reportIdToRemove, setReportIdToRemove] = useState("");
 
   // Memoize the individual load functions
   const loadDevotees = useCallback(async () => {
@@ -923,7 +924,37 @@ export function ManageSection() {
       {/* Recent Reports Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Recent Reports</CardTitle>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <CardTitle>Recent Reports</CardTitle>
+              <Badge variant="secondary" className="text-xs">
+                Tip: Remove older reports by entering their Report ID
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Enter Report ID to remove"
+                value={reportIdToRemove}
+                onChange={(e) => setReportIdToRemove(e.target.value)}
+                className="w-48"
+              />
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (reportIdToRemove.trim()) {
+                    removeReport(reportIdToRemove.trim());
+                    setReportIdToRemove("");
+                  } else {
+                    toast.error("Please enter a valid Report ID");
+                  }
+                }}
+                disabled={isLoading || !reportIdToRemove.trim()}
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
           <Button
             variant="outline"
             size="sm"
