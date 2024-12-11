@@ -157,7 +157,44 @@ const ImprovementCard = ({ improvement, index, onClick }: ImprovementCardProps) 
   );
 };
 
-const fetchLeaderboardData = async () => {
+const fetchLeaderboardData = async (weekNumber?: number) => {
+  if (weekNumber) {
+    const year = new Date().getFullYear();
+    const { start, end } = getWeekDates(weekNumber, year);
+    
+    const { data, error } = await supabase
+      .from('sadhna_report_view')
+      .select(`
+        devotee_name,
+        total_score,
+        date
+      `)
+      .gte('date', start)
+      .lte('date', end)
+      .order('total_score', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching leaderboard:', error);
+      return null;
+    }
+
+    // Aggregate scores for the week
+    const weeklyScores = data.reduce((acc: Record<string, number>, curr) => {
+      acc[curr.devotee_name] = (acc[curr.devotee_name] || 0) + curr.total_score;
+      return acc;
+    }, {});
+
+    return Object.entries(weeklyScores)
+      .map(([devotee_name, weekly_score]) => ({
+        devotee_name,
+        total_score: weekly_score,
+        weekly_score,
+        monthly_score: weekly_score, // For simplicity, showing same score
+      }))
+      .sort((a, b) => b.weekly_score - a.weekly_score);
+  }
+
+  // Default current week behavior
   const { data, error } = await supabase
     .from('leaderboard_view')
     .select('*')
@@ -487,6 +524,22 @@ const fetchScoreData = async (devoteeName: string) => {
   }).reverse();
 };
 
+// Add these helper functions at the top level
+function getWeekDates(weekNumber: number, year: number) {
+  const firstDayOfYear = new Date(year, 0, 1);
+  const firstWeekDay = firstDayOfYear.getDay();
+  const daysToAdd = (weekNumber - 1) * 7 - firstWeekDay;
+  
+  const weekStart = new Date(year, 0, 1 + daysToAdd);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  
+  return {
+    start: weekStart.toISOString().split('T')[0],
+    end: weekEnd.toISOString().split('T')[0]
+  };
+}
+
 export function Leaderboard() {
   const [stats, setStats] = useState<LeaderboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -500,6 +553,20 @@ export function Leaderboard() {
   const [currentWeek] = useState(getWeekNumber());
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
   const [loadingPositions, setLoadingPositions] = useState<Record<number, boolean>>({});
+  const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
+  const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
+
+  // Add this useEffect to calculate available weeks
+  useEffect(() => {
+    const calculateAvailableWeeks = () => {
+      const weeks = [];
+      for (let i = 1; i <= currentWeek; i++) {
+        weeks.push(i);
+      }
+      setAvailableWeeks(weeks.reverse()); // Most recent first
+    };
+    calculateAvailableWeeks();
+  }, [currentWeek]);
 
   const fetchLeaderboardStats = async () => {
     setIsLoading(true);
@@ -668,18 +735,11 @@ export function Leaderboard() {
     }
   };
 
-  const fetchFullLeaderboard = async () => {
-    const { data, error } = await supabase
-      .from('leaderboard_view')
-      .select('*')
-      .order('total_score', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching leaderboard:', error);
-      return;
+  const fetchFullLeaderboard = async (weekNum?: number) => {
+    const data = await fetchLeaderboardData(weekNum);
+    if (data) {
+      setLeaderboardData(data);
     }
-    
-    setLeaderboardData(data);
   };
 
   const getTopThree = () => {
@@ -786,6 +846,95 @@ export function Leaderboard() {
   if (isLoading) {
     return <LeaderboardSkeleton />;
   }
+
+  // Update the leaderboard drawer content
+  const renderLeaderboardDrawer = () => (
+    <Drawer open={isLeaderboardOpen} onOpenChange={setIsLeaderboardOpen}>
+      <DrawerContent className="max-h-[96vh]">
+        <DrawerHeader>
+          <DrawerTitle className="text-center text-xl font-bold">
+            Sadhana Leaderboard 🏆
+          </DrawerTitle>
+          <DrawerDescription className="text-center space-y-2">
+            <div>Rankings & Overall Statistics</div>
+            <Select
+              value={selectedWeek.toString()}
+              onValueChange={(value) => {
+                const weekNum = parseInt(value);
+                setSelectedWeek(weekNum);
+                fetchFullLeaderboard(weekNum);
+              }}
+            >
+              <SelectTrigger className="w-[180px] mx-auto">
+                <SelectValue placeholder="Select week" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableWeeks.map((week) => (
+                  <SelectItem key={week} value={week.toString()}>
+                    Week {week}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </DrawerDescription>
+        </DrawerHeader>
+
+        <ScrollArea className="h-[60vh] px-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[40%]">Devotee</TableHead>
+                <TableHead className="text-right">Weekly</TableHead>
+                <TableHead className="text-right">Monthly</TableHead>
+                <TableHead className="text-right">All Time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {leaderboardData
+                .sort((a, b) => b.weekly_score - a.weekly_score)
+                .map((entry, index) => (
+                  <TableRow key={entry.devotee_name} className="group hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {index < 3 && (
+                          <span className="text-lg">
+                            {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                          </span>
+                        )}
+                        {entry.devotee_name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="outline" className="group-hover:bg-background">
+                        {entry.weekly_score}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="outline" className="group-hover:bg-background">
+                        {entry.monthly_score}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="outline" className="group-hover:bg-background">
+                        {entry.total_score}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+
+        <DrawerFooter className="pt-2">
+          <DrawerClose asChild>
+            <ShinyButton className="w-full">
+              Close
+            </ShinyButton>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
 
   return (
     <div className="space-y-4 relative">
@@ -1692,72 +1841,7 @@ export function Leaderboard() {
           </DrawerContent>
         </Drawer>
 
-        <Drawer open={isLeaderboardOpen} onOpenChange={setIsLeaderboardOpen}>
-          <DrawerContent className="max-h-[96vh]">
-            <DrawerHeader>
-              <DrawerTitle className="text-center text-xl font-bold">
-                Sadhana Leaderboard 🏆
-              </DrawerTitle>
-              <DrawerDescription className="text-center">
-                Week {currentWeek} Rankings & Overall Statistics
-              </DrawerDescription>
-            </DrawerHeader>
-
-            <ScrollArea className="h-[60vh] px-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40%]">Devotee</TableHead>
-                    <TableHead className="text-right">Weekly</TableHead>
-                    <TableHead className="text-right">Monthly</TableHead>
-                    <TableHead className="text-right">All Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leaderboardData
-                    .sort((a, b) => b.weekly_score - a.weekly_score)
-                    .map((entry, index) => (
-                      <TableRow key={entry.devotee_name} className="group hover:bg-muted/50">
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {index < 3 && (
-                              <span className="text-lg">
-                                {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
-                              </span>
-                            )}
-                            {entry.devotee_name}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className="group-hover:bg-background">
-                            {entry.weekly_score}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className="group-hover:bg-background">
-                            {entry.monthly_score}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className="group-hover:bg-background">
-                            {entry.total_score}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-
-            <DrawerFooter className="pt-2">
-              <DrawerClose asChild>
-                <ShinyButton className="w-full">
-                  Close
-                </ShinyButton>
-              </DrawerClose>
-            </DrawerFooter>
-          </DrawerContent>
-        </Drawer>
+        {renderLeaderboardDrawer()}
 
         <div className="mt-6">
           <BlockQuote
