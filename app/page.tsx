@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import { SadhanaMetrics } from "@/components/sadhana/metrics";
 import { SadhanaForm } from "@/components/sadhana/form";
 import { WeeklyStats } from "@/components/sadhana/weekly-stats";
@@ -16,7 +16,13 @@ import Image from "next/image";
 import { ChantingVideos } from "@/components/sadhana/chanting-videos";
 import { Leaderboard } from "@/components/sadhana/leaderboard";
 import { DailyStats } from "@/components/sadhana/daily-stats";
-import { LayoutDashboard, ChartBar, ClipboardList, Trophy, Settings } from "lucide-react";
+import { LayoutDashboard, ChartBar, ClipboardList, Trophy, Settings, ChartLine } from "lucide-react";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { ProgressTracker } from "@/components/sadhana/progress-tracker";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase/client";
+import { krishnaNames } from "@/lib/constants/krishna-names";
+import Snowfall from 'react-snowfall';
 
 export default function Home() {
   // Animation variants
@@ -51,9 +57,74 @@ export default function Home() {
     setActiveTab(tabValue);
   }, []);
 
+  // Add state for drawer
+  const [isProgressDrawerOpen, setIsProgressDrawerOpen] = useState(false);
+  const [scoresByDevotee, setScoresByDevotee] = useState<Record<string, number[]>>({});
+
+  // Add state for Krishna name typewriter
+  const [currentKrishnaName, setCurrentKrishnaName] = useState("");
+  const [nameIndex, setNameIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+
+  // Add useEffect to fetch scores data
+  useEffect(() => {
+    const fetchScores = async () => {
+      const { data, error } = await supabase
+        .from('sadhna_report_view')
+        .select('devotee_name, total_score');
+      
+      if (data && !error) {
+        const scores = data.reduce((acc: Record<string, number[]>, curr) => {
+          if (!acc[curr.devotee_name]) {
+            acc[curr.devotee_name] = [];
+          }
+          acc[curr.devotee_name].push(curr.total_score);
+          return acc;
+        }, {});
+        setScoresByDevotee(scores);
+      }
+    };
+    fetchScores();
+  }, []);
+
+  // Add typewriter effect for Krishna names
+  useEffect(() => {
+    const currentName = krishnaNames[nameIndex];
+    
+    const typewriterTimeout = setTimeout(() => {
+      if (charIndex < currentName.length) {
+        setCurrentKrishnaName(currentName.slice(0, charIndex + 1));
+        setCharIndex(charIndex + 1);
+      } else {
+        // Wait longer at the end of each name
+        setTimeout(() => {
+          setCharIndex(0);
+          setNameIndex((prev) => (prev + 1) % krishnaNames.length);
+          setCurrentKrishnaName("");
+        }, 2000);
+      }
+    }, 100);
+
+    return () => clearTimeout(typewriterTimeout);
+  }, [nameIndex, charIndex]);
+
   return (
     <div className="min-h-screen relative overflow-hidden pb-16 md:pb-0">
-      {/* Background Image positioned on right edge */}
+      <Snowfall
+        snowflakeCount={200}
+        radius={[0.5, 1.5]}
+        speed={[0.5, 2.0]}
+        wind={[-0.5, 2.0]}
+        color="rgba(255,255,255,0.3)"
+        style={{
+          position: 'fixed',
+          width: '100vw',
+          height: '100vh',
+          zIndex: 50
+        }}
+      />
+
+      {/* Background Image with reduced opacity */}
       <div className="fixed right-0 top-0 h-full w-1/3 -z-10">
         <div className="absolute inset-0 bg-gradient-to-l from-transparent to-background" />
         <Image
@@ -68,7 +139,7 @@ export default function Home() {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6 space-y-6 lg:space-y-8 relative">
+      <div className="container mx-auto px-4 py-6 space-y-6 lg:space-y-8 relative z-10">
         {/* Glass Effect Container */}
         <div 
           className="absolute inset-0 backdrop-blur-sm bg-background/40 
@@ -118,7 +189,7 @@ export default function Home() {
             variants={itemVariants}
           >
             <Badge variant="secondary" className="text-xs md:text-sm">
-            v0.0.6 - 🌺 Madhumangala Stage 🌺 [prabhu-edition]
+            v0.0.7 - 🌻 Kaliya Mardana Stage 🌻 [prabhu-edition]
             </Badge>
             
             {/* Operational Status Badge */}
@@ -147,12 +218,20 @@ export default function Home() {
             </motion.span>
           </motion.div>
           
-          <motion.div 
-            className="flex justify-center"
-            variants={itemVariants}
-          >
+          <motion.div className="flex justify-center gap-2 flex-wrap">
             <Badge variant="secondary" className="text-sm px-4 py-2">
               🫡 Kindly fill this 📝 Hare Krishna DSR before ⏰12 Midnight 🌏 KST
+            </Badge>
+            
+            {/* New Krishna Name Badge */}
+            <Badge 
+              variant="secondary" 
+              className="text-sm px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 
+                         dark:from-purple-950/30 dark:to-pink-950/30 
+                         text-purple-700 dark:text-purple-300
+                         border-purple-200/50 transition-all duration-500"
+            >
+              ✨ Krishna also known as: {currentKrishnaName || "Loading..."}
             </Badge>
           </motion.div>
         </motion.div>
@@ -343,6 +422,87 @@ export default function Home() {
           </Tabs>
         </motion.div>
       </div>
+
+      {/* Progress Tracker FAB - Fixed on right side */}
+      <div className="fixed right-4 bottom-20 md:bottom-4 z-50">
+        <Button
+          onClick={() => setIsProgressDrawerOpen(true)}
+          size="icon"
+          className="h-12 w-12 rounded-full shadow-lg 
+                     bg-gradient-to-br from-purple-500 to-indigo-500 
+                     hover:from-purple-600 hover:to-indigo-600 
+                     transition-all duration-300 ease-in-out
+                     hover:scale-105 hover:shadow-xl
+                     border border-purple-400/20
+                     group relative"
+        >
+          <ChartLine className="h-5 w-5 text-white 
+                       group-hover:scale-110 
+                       transition-transform duration-200" />
+          <span className="sr-only">Open Progress Tracker</span>
+        </Button>
+      </div>
+
+      {/* Mobile Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 md:hidden">
+        <nav className="flex justify-around items-center h-16 bg-background/80 backdrop-blur-lg border-t z-40">
+          <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-5 w-full h-full bg-transparent border-none">
+              <TabsTrigger 
+                value="overview" 
+                className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Overview</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="stats" 
+                className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent"
+              >
+                <ChartBar className="h-4 w-4" />
+                <span>Stats</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="records" 
+                className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent"
+              >
+                <ClipboardList className="h-4 w-4" />
+                <span>Records</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="leaderboard" 
+                className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent relative"
+              >
+                <Trophy className="h-4 w-4" />
+                <span>Leaders</span>
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-pink-500"></span>
+                </span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="manage" 
+                className="flex flex-col items-center gap-1 text-xs data-[state=active]:bg-transparent"
+              >
+                <Settings className="h-4 w-4" />
+                <span>Manage</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </nav>
+      </div>
+
+      {/* Progress Tracker Drawer */}
+      <Drawer open={isProgressDrawerOpen} onOpenChange={setIsProgressDrawerOpen}>
+        <DrawerContent className="h-[85vh]">
+          <DrawerHeader>
+            <DrawerTitle>Personal Progress Tracker</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 overflow-y-auto">
+            <ProgressTracker scoresByDevotee={scoresByDevotee} />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

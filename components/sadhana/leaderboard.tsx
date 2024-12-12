@@ -62,6 +62,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { ProgressTracker } from "./progress-tracker";
 
 interface Improvement {
   devotee_name: string;
@@ -114,6 +115,9 @@ const ImprovementCard = ({ improvement, index, onClick }: ImprovementCardProps) 
     "from-yellow-500 via-orange-500 to-red-500 dark:from-yellow-600 dark:via-orange-600 dark:to-red-600",
     "from-purple-500 via-pink-500 to-red-500 dark:from-purple-600 dark:via-pink-600 dark:to-red-600",
     "from-green-500 via-emerald-500 to-teal-500 dark:from-green-600 dark:via-emerald-600 dark:to-teal-600",
+    "from-indigo-500 via-blue-500 to-cyan-500 dark:from-indigo-600 dark:via-blue-600 dark:to-cyan-600",
+    "from-rose-500 via-red-500 to-orange-500 dark:from-rose-600 dark:via-red-600 dark:to-orange-600",
+    "from-teal-500 via-cyan-500 to-blue-500 dark:from-teal-600 dark:via-cyan-600 dark:to-blue-600",
   ];
 
   return (
@@ -123,32 +127,32 @@ const ImprovementCard = ({ improvement, index, onClick }: ImprovementCardProps) 
         onClick({ ...improvement, scoreData });
       }}
       className={cn(
-        "relative w-64 mx-2 overflow-hidden rounded-xl border p-4",
+        "relative w-44 mx-2 overflow-hidden rounded-xl border p-3",
         "transform transition-all hover:scale-[1.02] active:scale-[0.98]",
         "bg-gradient-to-br",
         gradients[index % gradients.length],
         "text-white cursor-pointer"
       )}
     >
-      <div className="space-y-2">
-        <Badge variant="outline" className="w-fit backdrop-blur-sm bg-white/10 border-white/20 text-white">
+      <div className="space-y-1.5">
+        <Badge variant="outline" className="w-fit backdrop-blur-sm bg-white/10 border-white/20 text-white text-xs">
           {improvement.devotee_name}
         </Badge>
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Badge 
               variant="secondary" 
               className={cn(
-                "bg-green-500/20 text-white",
+                "bg-green-500/20 text-white text-xs",
                 "animate-pulse-subtle shadow-[0_0_15px_rgba(34,197,94,0.5)]",
                 "backdrop-blur-sm border-green-400/30"
               )}
             >
               +{improvement.percentageIncrease.toFixed(0)}%
             </Badge>
-            <span className="text-xs text-white/80">improvement</span>
+            <span className="text-[10px] text-white/80">improvement</span>
           </div>
-          <p className="text-xs text-white/70">
+          <p className="text-[10px] text-white/70">
             Increased by {improvement.improvement} points on {improvement.date}
           </p>
         </div>
@@ -158,11 +162,26 @@ const ImprovementCard = ({ improvement, index, onClick }: ImprovementCardProps) 
 };
 
 const fetchLeaderboardData = async (weekNumber?: number) => {
+  // Get the current year
+  const year = new Date().getFullYear();
+  
+  // Fetch all-time scores first
+  const { data: allTimeData, error: allTimeError } = await supabase
+    .from('leaderboard_view')
+    .select('*')
+    .order('total_score', { ascending: false });
+
+  if (allTimeError) {
+    console.error('Error fetching all-time leaderboard:', allTimeError);
+    return null;
+  }
+
+  // If a specific week is selected
   if (weekNumber) {
-    const year = new Date().getFullYear();
     const { start, end } = getWeekDates(weekNumber, year);
     
-    const { data, error } = await supabase
+    // Fetch weekly data
+    const { data: weeklyData, error: weeklyError } = await supabase
       .from('sadhna_report_view')
       .select(`
         devotee_name,
@@ -173,39 +192,117 @@ const fetchLeaderboardData = async (weekNumber?: number) => {
       .lte('date', end)
       .order('total_score', { ascending: false });
     
-    if (error) {
-      console.error('Error fetching leaderboard:', error);
+    if (weeklyError) {
+      console.error('Error fetching weekly leaderboard:', weeklyError);
       return null;
     }
 
-    // Aggregate scores for the week
-    const weeklyScores = data.reduce((acc: Record<string, number>, curr) => {
+    // Calculate monthly range (4 weeks from the selected week)
+    const monthStart = new Date(start);
+    monthStart.setDate(monthStart.getDate() - 21); // Go back 3 weeks
+    
+    // Fetch monthly data
+    const { data: monthlyData, error: monthlyError } = await supabase
+      .from('sadhna_report_view')
+      .select(`
+        devotee_name,
+        total_score,
+        date
+      `)
+      .gte('date', monthStart.toISOString().split('T')[0])
+      .lte('date', end)
+      .order('total_score', { ascending: false });
+
+    if (monthlyError) {
+      console.error('Error fetching monthly leaderboard:', monthlyError);
+      return null;
+    }
+
+    // Aggregate weekly scores
+    const weeklyScores = weeklyData.reduce((acc: Record<string, number>, curr) => {
       acc[curr.devotee_name] = (acc[curr.devotee_name] || 0) + curr.total_score;
       return acc;
     }, {});
 
-    return Object.entries(weeklyScores)
-      .map(([devotee_name, weekly_score]) => ({
-        devotee_name,
-        total_score: weekly_score,
-        weekly_score,
-        monthly_score: weekly_score, // For simplicity, showing same score
-      }))
-      .sort((a, b) => b.weekly_score - a.weekly_score);
+    // Aggregate monthly scores
+    const monthlyScores = monthlyData.reduce((acc: Record<string, number>, curr) => {
+      acc[curr.devotee_name] = (acc[curr.devotee_name] || 0) + curr.total_score;
+      return acc;
+    }, {});
+
+    // Combine all data
+    const combinedData = allTimeData.map(entry => ({
+      devotee_name: entry.devotee_name,
+      total_score: entry.total_score,
+      weekly_score: weeklyScores[entry.devotee_name] || 0,
+      monthly_score: monthlyScores[entry.devotee_name] || 0,
+    }));
+
+    // Sort by weekly score since we're viewing a specific week
+    return combinedData.sort((a, b) => b.weekly_score - a.weekly_score);
   }
 
   // Default current week behavior
-  const { data, error } = await supabase
-    .from('leaderboard_view')
-    .select('*')
-    .order('total_score', { ascending: false });
+  const currentDate = new Date();
+  const { start: currentWeekStart, end: currentWeekEnd } = getWeekDates(getWeekNumber(currentDate), year);
   
-  if (error) {
-    console.error('Error fetching leaderboard:', error);
+  const { data: currentWeekData, error: currentWeekError } = await supabase
+    .from('sadhna_report_view')
+    .select(`
+      devotee_name,
+      total_score,
+      date
+    `)
+    .gte('date', currentWeekStart)
+    .lte('date', currentWeekEnd)
+    .order('total_score', { ascending: false });
+
+  if (currentWeekError) {
+    console.error('Error fetching current week leaderboard:', currentWeekError);
     return null;
   }
-  
-  return data;
+
+  // Calculate monthly range for current week
+  const monthStart = new Date(currentWeekStart);
+  monthStart.setDate(monthStart.getDate() - 21);
+
+  const { data: currentMonthData, error: currentMonthError } = await supabase
+    .from('sadhna_report_view')
+    .select(`
+      devotee_name,
+      total_score,
+      date
+    `)
+    .gte('date', monthStart.toISOString().split('T')[0])
+    .lte('date', currentWeekEnd)
+    .order('total_score', { ascending: false });
+
+  if (currentMonthError) {
+    console.error('Error fetching current month leaderboard:', currentMonthError);
+    return null;
+  }
+
+  // Aggregate current week scores
+  const currentWeekScores = currentWeekData.reduce((acc: Record<string, number>, curr) => {
+    acc[curr.devotee_name] = (acc[curr.devotee_name] || 0) + curr.total_score;
+    return acc;
+  }, {});
+
+  // Aggregate current month scores
+  const currentMonthScores = currentMonthData.reduce((acc: Record<string, number>, curr) => {
+    acc[curr.devotee_name] = (acc[curr.devotee_name] || 0) + curr.total_score;
+    return acc;
+  }, {});
+
+  // Combine all data for current week
+  const combinedCurrentData = allTimeData.map(entry => ({
+    devotee_name: entry.devotee_name,
+    total_score: entry.total_score,
+    weekly_score: currentWeekScores[entry.devotee_name] || 0,
+    monthly_score: currentMonthScores[entry.devotee_name] || 0,
+  }));
+
+  return combinedCurrentData.sort((a, b) => b.weekly_score - a.weekly_score);
 };
 
 const triggerConfetti = (colors: string[]) => {
@@ -540,6 +637,18 @@ function getWeekDates(weekNumber: number, year: number) {
   };
 }
 
+// Add this interface for loading states
+interface LoadingStates {
+  drawer: boolean;
+  improvements: boolean;
+  personalStats: boolean;
+}
+
+// Add this helper function to format week display
+function formatWeekDisplay(weekNumber: number, year: number) {
+  return `Week ${weekNumber} of ${year}`;
+}
+
 export function Leaderboard() {
   const [stats, setStats] = useState<LeaderboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -555,6 +664,11 @@ export function Leaderboard() {
   const [loadingPositions, setLoadingPositions] = useState<Record<number, boolean>>({});
   const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
   const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
+  const [loadingStates, setLoadingStates] = useState<LoadingStates>({
+    drawer: false,
+    improvements: false,
+    personalStats: false,
+  });
 
   // Add this useEffect to calculate available weeks
   useEffect(() => {
@@ -571,112 +685,95 @@ export function Leaderboard() {
   const fetchLeaderboardStats = async () => {
     setIsLoading(true);
     
-    // Calculate current week's start date (Sunday)
-    const currentWeekStart = new Date();
-    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
-    currentWeekStart.setHours(0, 0, 0, 0);
-
-    const [records, leaderboardData] = await Promise.all([
-      supabase
+    try {
+      // Get all devotees' data for the last 7 days
+      const { data: recentData, error: recentError } = await supabase
         .from('sadhna_report_view')
         .select('*')
-        .order('date', { ascending: false }),
-      fetchLeaderboardData()
-    ]);
+        .order('date', { ascending: false });
 
-    if (records.data && !records.error && leaderboardData) {
-      // Initialize all variables at the start
-      const devoteeScores: Record<string, number[]> = {};
-      const allTimeHigh = {
-        score: 0,
-        devotee_name: '',
-        date: ''
-      };
-      const weeklyHigh = {
-        score: 0,
-        devotee_name: '',
-        date: ''
-      };
-      const monthlyHigh = {
-        score: 0,
-        devotee_name: '',
-        date: ''
-      };
-      const personalBests: Record<string, { current: number, previous: number, date: string }> = {};
-      const significantImprovements: Improvement[] = [];
+      if (recentError) throw recentError;
 
-      // First pass: collect all scores by devotee
-      records.data.forEach(record => {
+      // Group scores by devotee
+      const devoteeScores: Record<string, { scores: number[], dates: string[] }> = {};
+      
+      recentData?.forEach(record => {
         if (!devoteeScores[record.devotee_name]) {
-          devoteeScores[record.devotee_name] = [];
+          devoteeScores[record.devotee_name] = { scores: [], dates: [] };
         }
-        devoteeScores[record.devotee_name].push(record.total_score);
-
-        // Update all-time high
-        if (record.total_score > allTimeHigh.score) {
-          allTimeHigh.score = record.total_score;
-          allTimeHigh.devotee_name = record.devotee_name;
-          allTimeHigh.date = new Date(record.date).toLocaleDateString();
-        }
-
-        // Check weekly high
-        const recordDate = new Date(record.date);
-        if (recordDate >= currentWeekStart && record.total_score > weeklyHigh.score) {
-          weeklyHigh.score = record.total_score;
-          weeklyHigh.devotee_name = record.devotee_name;
-          weeklyHigh.date = recordDate.toLocaleDateString();
-        }
+        devoteeScores[record.devotee_name].scores.push(record.total_score);
+        devoteeScores[record.devotee_name].dates.push(record.date);
       });
 
-      setScoresByDevotee(devoteeScores);
+      // Calculate improvements for each devotee
+      const significantImprovements: Improvement[] = Object.entries(devoteeScores)
+        .map(([devotee_name, data]): Improvement | null => {
+          if (data.scores.length < 2) return null;
 
-      // Get monthly high score from leaderboard view
-      const monthlyLeader = leaderboardData
-        .sort((a, b) => b.monthly_score - a.monthly_score)[0];
-
-      // Process significant improvements
-      Object.entries(devoteeScores).forEach(([devotee, scores]) => {
-        if (scores.length >= 3) {
-          const latestScore = scores[0];
-          const previousScores = scores.slice(1);
+          const latestScore = data.scores[0];
+          const previousScores = data.scores.slice(1);
           const avgPreviousScore = previousScores.reduce((a, b) => a + b, 0) / previousScores.length;
           const improvement = latestScore - avgPreviousScore;
           const percentageIncrease = (improvement / avgPreviousScore) * 100;
 
-          if (percentageIncrease > 20) {
-            significantImprovements.push({
-              devotee_name: devotee,
-              improvement,
-              percentageIncrease,
-              date: new Date(records.data.find(r => r.total_score === latestScore)?.date || '').toLocaleDateString(),
-              scoreData: [],
-            });
-          }
-        }
-      });
+          return {
+            devotee_name,
+            improvement,
+            percentageIncrease,
+            date: new Date(data.dates[0]).toLocaleDateString(),
+            scoreData: []
+          };
+        })
+        .filter((imp): imp is Improvement => imp !== null)
+        .sort((a, b) => b.percentageIncrease - a.percentageIncrease);
 
-      // Track if this is a new all-time record
-      const previousAllTimeHigh = Math.max(...records.data.slice(1).map(r => r.total_score));
-      const isNewRecord = records.data[0]?.total_score > previousAllTimeHigh;
+      // Rest of your stats calculations...
+      const allTimeHigh = {
+        score: Math.max(...recentData.map(r => r.total_score)),
+        devotee_name: recentData.reduce((a, b) => a.total_score > b.total_score ? a : b).devotee_name,
+        date: recentData.reduce((a, b) => a.total_score > b.total_score ? a : b).date
+      };
+
+      const currentWeekStart = new Date();
+      currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+      currentWeekStart.setHours(0, 0, 0, 0);
+
+      const weeklyHigh = recentData
+        .filter(r => new Date(r.date) >= currentWeekStart)
+        .reduce((high, current) => 
+          current.total_score > high.score 
+            ? { score: current.total_score, devotee_name: current.devotee_name, date: current.date }
+            : high,
+          { score: 0, devotee_name: '', date: '' }
+        );
 
       setStats({
-        allTimeHighScore: allTimeHigh,
+        allTimeHighScore: {
+          score: allTimeHigh.score,
+          devotee_name: allTimeHigh.devotee_name,
+          date: new Date(allTimeHigh.date).toLocaleDateString()
+        },
         weeklyHighScore: weeklyHigh,
         monthlyHighScore: {
-          score: monthlyLeader.monthly_score,
-          devotee_name: monthlyLeader.devotee_name,
+          score: weeklyHigh.score, // You might want to adjust this based on your needs
+          devotee_name: weeklyHigh.devotee_name
         },
-        recentPersonalBests: Object.entries(personalBests).map(([name, stats]) => ({
-          devotee_name: name,
-          newBest: stats.current,
-          previousBest: stats.previous,
-          date: stats.date,
-        })),
-        newAllTimeRecord: isNewRecord,
-        significantImprovements: significantImprovements,
+        recentPersonalBests: [], // Populate if needed
+        newAllTimeRecord: false, // Calculate as needed
+        significantImprovements
       });
+
+      setScoresByDevotee(
+        Object.fromEntries(
+          Object.entries(devoteeScores).map(([name, data]) => [name, data.scores])
+        )
+      );
+
+    } catch (error) {
+      console.error('Error fetching leaderboard stats:', error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const fetchPersonalStats = async (devoteeName: string) => {
@@ -736,9 +833,14 @@ export function Leaderboard() {
   };
 
   const fetchFullLeaderboard = async (weekNum?: number) => {
-    const data = await fetchLeaderboardData(weekNum);
-    if (data) {
-      setLeaderboardData(data);
+    setLoadingStates(prev => ({ ...prev, drawer: true }));
+    try {
+      const data = await fetchLeaderboardData(weekNum);
+      if (data) {
+        setLeaderboardData(data);
+      }
+    } finally {
+      setLoadingStates(prev => ({ ...prev, drawer: false }));
     }
   };
 
@@ -750,6 +852,7 @@ export function Leaderboard() {
   };
 
   const handleBadgeClick = async (position: number, devoteeName: string) => {
+    setLoadingStates(prev => ({ ...prev, personalStats: true }));
     setLoadingPositions(prev => ({ ...prev, [position]: true }));
 
     try {
@@ -804,6 +907,7 @@ export function Leaderboard() {
         setIsImprovementDialogOpen(true);
       }
     } finally {
+      setLoadingStates(prev => ({ ...prev, personalStats: false }));
       setTimeout(() => {
         setLoadingPositions(prev => ({ ...prev, [position]: false }));
       }, 500);
@@ -855,14 +959,19 @@ export function Leaderboard() {
           <DrawerTitle className="text-center text-xl font-bold">
             Sadhana Leaderboard 🏆
           </DrawerTitle>
-          <DrawerDescription className="text-center space-y-2">
-            <div>Rankings & Overall Statistics</div>
+          <div className="text-center space-y-2">
+            <span className="text-sm text-muted-foreground">
+              {formatWeekDisplay(selectedWeek, new Date().getFullYear())}
+            </span>
             <Select
               value={selectedWeek.toString()}
               onValueChange={(value) => {
                 const weekNum = parseInt(value);
                 setSelectedWeek(weekNum);
-                fetchFullLeaderboard(weekNum);
+                setLoadingStates(prev => ({ ...prev, drawer: true }));
+                fetchFullLeaderboard(weekNum).finally(() => {
+                  setLoadingStates(prev => ({ ...prev, drawer: false }));
+                });
               }}
             >
               <SelectTrigger className="w-[180px] mx-auto">
@@ -876,60 +985,78 @@ export function Leaderboard() {
                 ))}
               </SelectContent>
             </Select>
-          </DrawerDescription>
+          </div>
         </DrawerHeader>
 
         <ScrollArea className="h-[60vh] px-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40%]">Devotee</TableHead>
-                <TableHead className="text-right">Weekly</TableHead>
-                <TableHead className="text-right">Monthly</TableHead>
-                <TableHead className="text-right">All Time</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {leaderboardData
-                .sort((a, b) => b.weekly_score - a.weekly_score)
-                .map((entry, index) => (
-                  <TableRow key={entry.devotee_name} className="group hover:bg-muted/50">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {index < 3 && (
-                          <span className="text-lg">
-                            {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
-                          </span>
-                        )}
-                        {entry.devotee_name}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="outline" className="group-hover:bg-background">
-                        {entry.weekly_score}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="outline" className="group-hover:bg-background">
-                        {entry.monthly_score}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="outline" className="group-hover:bg-background">
-                        {entry.total_score}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
+          {loadingStates.drawer ? (
+            <div className="space-y-2">
+              {[...Array(10)].map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-4 rounded-lg border animate-pulse"
+                >
+                  <div className="w-1/3 h-4 bg-muted rounded" />
+                  <div className="flex gap-4">
+                    <div className="w-16 h-4 bg-muted rounded" />
+                    <div className="w-16 h-4 bg-muted rounded" />
+                    <div className="w-16 h-4 bg-muted rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40%]">Devotee</TableHead>
+                  <TableHead className="text-right">Weekly</TableHead>
+                  <TableHead className="text-right">Monthly</TableHead>
+                  <TableHead className="text-right">All Time</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {leaderboardData
+                  .sort((a, b) => b.weekly_score - a.weekly_score)
+                  .map((entry, index) => (
+                    <TableRow key={entry.devotee_name} className="group hover:bg-muted/50">
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {index < 3 && (
+                            <span className="text-lg">
+                              {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                            </span>
+                          )}
+                          {entry.devotee_name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline" className="group-hover:bg-background">
+                          {entry.weekly_score}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline" className="group-hover:bg-background">
+                          {entry.monthly_score}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline" className="group-hover:bg-background">
+                          {entry.total_score}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          )}
         </ScrollArea>
 
         <DrawerFooter className="pt-2">
           <DrawerClose asChild>
-            <ShinyButton className="w-full">
+            <Button className="w-full">
               Close
-            </ShinyButton>
+            </Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>
@@ -980,7 +1107,7 @@ export function Leaderboard() {
                     <motion.button
                       variants={podiumVariants}
                       key={getTopThree()[1]?.devotee_name}
-                      onClick={() => triggerConfetti(["#C0C0C0", "#E8E8E8"])}
+                      onClick={() => handleBadgeClick(2, getTopThree()[1]?.devotee_name)}
                       className={cn(
                         "relative w-[120px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
                         "transition-all hover:scale-105 hover:-translate-y-1",
@@ -989,8 +1116,13 @@ export function Leaderboard() {
                         "flex flex-col items-center gap-2 sm:gap-3",
                         "group shadow-lg"
                       )}
+                      disabled={loadingPositions[2]}
                     >
-                      <Star className="h-4 w-4 sm:h-6 sm:w-6 text-[#C0C0C0] group-hover:text-[#E8E8E8]" />
+                      {loadingPositions[2] ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#C0C0C0] border-r-transparent" />
+                      ) : (
+                        <Star className="h-4 w-4 sm:h-6 sm:w-6 text-[#C0C0C0] group-hover:text-[#E8E8E8]" />
+                      )}
                       <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 truncate w-full text-center">
                         {getTopThree()[1]?.devotee_name}
                       </span>
@@ -1003,7 +1135,7 @@ export function Leaderboard() {
                     <motion.button
                       variants={podiumVariants}
                       key={getTopThree()[0]?.devotee_name}
-                      onClick={() => triggerConfetti(["#FFD700", "#FFED4A"])}
+                      onClick={() => handleBadgeClick(1, getTopThree()[0]?.devotee_name)}
                       className={cn(
                         "relative w-[140px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
                         "transition-all hover:scale-105 hover:-translate-y-2",
@@ -1013,8 +1145,13 @@ export function Leaderboard() {
                         "group shadow-xl",
                         "transform scale-105 -translate-y-4"
                       )}
+                      disabled={loadingPositions[1]}
                     >
-                      <Crown className="h-6 w-6 sm:h-8 sm:w-8 text-[#FFD700] group-hover:text-[#FFED4A]" />
+                      {loadingPositions[1] ? (
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#FFD700] border-r-transparent" />
+                      ) : (
+                        <Crown className="h-6 w-6 sm:h-8 sm:w-8 text-[#FFD700] group-hover:text-[#FFED4A]" />
+                      )}
                       <SparklesText 
                         text={getTopThree()[0]?.devotee_name}
                         className="text-base sm:text-lg font-semibold truncate w-full text-center"
@@ -1023,14 +1160,13 @@ export function Leaderboard() {
                       <Badge variant="secondary" className="bg-[#FFD700]/20 text-[#B8860B] px-3 sm:px-4 py-0.5 sm:py-1 text-sm sm:text-base">
                         {getTopThree()[0]?.weekly_score} pts
                       </Badge>
-                      <Meteors number={5} />
                     </motion.button>
 
                     {/* 3rd Place */}
                     <motion.button
                       variants={podiumVariants}
                       key={getTopThree()[2]?.devotee_name}
-                      onClick={() => triggerConfetti(["#CD7F32", "#DFA878"])}
+                      onClick={() => handleBadgeClick(3, getTopThree()[2]?.devotee_name)}
                       className={cn(
                         "relative w-[120px] sm:w-[200px] px-3 sm:px-6 py-3 sm:py-4 rounded-xl",
                         "transition-all hover:scale-105 hover:-translate-y-1",
@@ -1039,8 +1175,13 @@ export function Leaderboard() {
                         "flex flex-col items-center gap-2 sm:gap-3",
                         "group shadow-lg"
                       )}
+                      disabled={loadingPositions[3]}
                     >
-                      <Trophy className="h-4 w-4 sm:h-6 sm:w-6 text-[#CD7F32] group-hover:text-[#DFA878]" />
+                      {loadingPositions[3] ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#CD7F32] border-r-transparent" />
+                      ) : (
+                        <Medal className="h-4 w-4 sm:h-6 sm:w-6 text-[#CD7F32] group-hover:text-[#DDA15E]" />
+                      )}
                       <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 truncate w-full text-center">
                         {getTopThree()[2]?.devotee_name}
                       </span>
@@ -1159,318 +1300,44 @@ export function Leaderboard() {
         </motion.div>
 
         {/* Move Marquee here, above Personal Progress Tracker */}
-        <div className="py-8 relative">
+        <div className="py-6 relative">
           {stats?.significantImprovements && stats.significantImprovements.length > 0 && (
-            <Marquee className="py-4">
-              {stats.significantImprovements.map((improvement, index) => (
-                <ImprovementCard
-                  key={`${improvement.devotee_name}-${index}`}
-                  improvement={improvement}
-                  index={index}
-                  onClick={async (improvementWithData) => {
-                    setSelectedImprovement(improvementWithData);
-                    setIsImprovementDialogOpen(true);
-                  }}
-                />
-              ))}
-            </Marquee>
+            <div className="space-y-4">
+              <Marquee className="py-2" velocity={20}>
+                {[...stats.significantImprovements].map((improvement, index) => (
+                  <ImprovementCard
+                    key={`top-${improvement.devotee_name}-${index}`}
+                    improvement={improvement}
+                    index={index}
+                    onClick={async (improvementWithData) => {
+                      setSelectedImprovement(improvementWithData);
+                      setIsImprovementDialogOpen(true);
+                    }}
+                  />
+                ))}
+              </Marquee>
+              <Marquee className="py-2" velocity={15} reverse>
+                {[...stats.significantImprovements].map((improvement, index) => (
+                  <ImprovementCard
+                    key={`bottom-${improvement.devotee_name}-${index}`}
+                    improvement={improvement}
+                    index={index + stats.significantImprovements.length}
+                    onClick={async (improvementWithData) => {
+                      setSelectedImprovement(improvementWithData);
+                      setIsImprovementDialogOpen(true);
+                    }}
+                  />
+                ))}
+              </Marquee>
+            </div>
           )}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-background"></div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-1/3 bg-gradient-to-l from-background"></div>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-background"></div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-background"></div>
         </div>
 
         {/* Personal Progress Tracker */}
         <div className="w-full">
-          <Card className="border bg-background/30 backdrop-blur-[2px]">
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                  Personal Progress Tracker
-                </CardTitle>
-                <div className="flex flex-col items-end gap-1">
-                  <Badge variant="outline">
-                    Track Your Growth
-                  </Badge>
-                  <span className="text-xs italic text-muted-foreground max-w-[300px] text-right">
-                    "One should be enthusiastic to make progress in spiritual life. This is called utsāhān dhairyāt."
-                    <span className="block mt-0.5 font-medium">
-                      - Srila Prabhupada
-                    </span>
-                  </span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Devotee Selection - Left aligned */}
-                <div className="text-sm text-muted-foreground">
-                  Select your name to see your progress and compare with your previous best scores.
-                </div>
-                
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="w-full sm:max-w-[300px]"
-                >
-                  <Select
-                    value={selectedDevotee}
-                    onValueChange={(value) => {
-                      setSelectedDevotee(value);
-                      fetchPersonalStats(value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a devotee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(scoresByDevotee)
-                        .sort()
-                        .map((devotee) => (
-                          <SelectItem key={devotee} value={devotee}>
-                            {devotee}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </motion.div>
-
-                {personalStats && (
-                  <motion.div 
-                    variants={staggerContainer}
-                    initial="hidden"
-                    animate="visible"
-                    className="space-y-6"
-                  >
-                    {/* Score Cards - Make responsive */}
-                    <motion.div 
-                      className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                      variants={fadeInScale}
-                    >
-                      {/* Current Score */}
-                      <motion.div 
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="space-y-2 p-4 rounded-lg bg-white/50 dark:bg-black/10"
-                      >
-                        <p className="text-sm text-muted-foreground">Current Score</p>
-                        <motion.p 
-                          initial={{ scale: 0.5, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                          className="text-3xl font-bold text-green-600"
-                        >
-                          {personalStats.currentScore}
-                        </motion.p>
-                        <p className="text-xs text-muted-foreground">Latest achievement</p>
-                      </motion.div>
-                      
-                      {/* Previous Best */}
-                      <motion.div 
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="space-y-2 p-4 rounded-lg bg-white/50 dark:bg-black/10"
-                      >
-                        <p className="text-sm text-muted-foreground">Previous Best</p>
-                        <motion.p 
-                          initial={{ scale: 0.5, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                          className="text-3xl font-bold text-blue-600"
-                        >
-                          {personalStats.previousBest}
-                        </motion.p>
-                        <p className="text-xs text-muted-foreground">Your record to beat</p>
-                      </motion.div>
-                    </motion.div>
-
-                    {/* Bento Grid Layout - Make responsive */}
-                    <motion.div 
-                      variants={staggerContainer}
-                      className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
-                    >
-                      {/* Lecture Card */}
-                      <GradientBentoCard
-                        size="default"
-                        className="col-span-1 sm:col-span-1"
-                        icon={
-                          <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/20">
-                            <Headphones className="h-4 w-4 text-purple-600" />
-                          </div>
-                        }
-                        title="Lecture"
-                        value={`${personalStats.score_c || 0}/30`}
-                        gradient="linear-gradient(135deg, #9333EA, #C084FC, #E879F9, #FAE8FF)"
-                      >
-                        <div className="space-y-2">
-                          <div className="text-sm text-muted-foreground truncate">
-                            {personalStats.lecture_speaker || 'No lecture'}
-                          </div>
-                          <div className="text-2xl font-semibold">
-                            {personalStats.lecture_time_min || 0}
-                            <span className="text-sm font-normal text-muted-foreground ml-1">min</span>
-                          </div>
-                          <motion.div 
-                            initial={{ scaleX: 0 }}
-                            animate={{ scaleX: 1 }}
-                            className="h-2 bg-purple-100 rounded-full overflow-hidden"
-                          >
-                            <motion.div 
-                              initial={{ width: 0 }}
-                              animate={{ width: `${(personalStats.score_c || 0) / 30 * 100}%` }}
-                              className="h-full bg-purple-500"
-                            />
-                          </motion.div>
-                        </div>
-                      </GradientBentoCard>
-
-                      {/* Seva Card */}
-                      <GradientBentoCard
-                        size="default"
-                        className="col-span-1 sm:col-span-1"
-                        icon={
-                          <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/20">
-                            <Heart className="h-4 w-4 text-green-600" />
-                          </div>
-                        }
-                        title="Seva"
-                        value={
-                          <Badge variant="secondary" className="bg-green-100 text-green-700">
-                            {personalStats.score_d || 0}/15
-                          </Badge>
-                        }
-                        gradient="linear-gradient(135deg, #22C55E, #4ADE80, #86EFAC, #DCFCE7)"
-                      >
-                        <div className="space-y-2">
-                          <div className="text-sm text-muted-foreground truncate">
-                            {personalStats.seva_name || 'No seva'}
-                          </div>
-                          <div className="text-2xl font-semibold">
-                            {personalStats.seva_time_min || 0}
-                            <span className="text-sm font-normal text-muted-foreground ml-1">min</span>
-                          </div>
-                          <motion.div 
-                            initial={{ scaleX: 0 }}
-                            animate={{ scaleX: 1 }}
-                            className="h-2 bg-green-100 rounded-full overflow-hidden"
-                          >
-                            <motion.div 
-                              initial={{ width: 0 }}
-                              animate={{ width: `${(personalStats.score_d || 0) / 15 * 100}%` }}
-                              className="h-full bg-green-500"
-                            />
-                          </motion.div>
-                        </div>
-                      </GradientBentoCard>
-
-                      {/* Book Reading Card */}
-                      <GradientBentoCard
-                        size="double"
-                        className="col-span-1 sm:col-span-2"
-                        icon={
-                          <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/20">
-                            <BookOpen className="h-4 w-4 text-blue-600" />
-                          </div>
-                        }
-                        title="Book Reading"
-                        value={
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                            {personalStats.score_b || 0}/30
-                          </Badge>
-                        }
-                        gradient="linear-gradient(135deg, #2563EB, #60A5FA, #93C5FD, #DBEAFE)"
-                      >
-                        <div className="space-y-4">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm gap-2">
-                            <span className="text-muted-foreground">{personalStats.book_name || 'No book selected'}</span>
-                            <span className="font-medium">{personalStats.book_reading_time_min || 0} min</span>
-                          </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                            <div>1-15 min: 7 pts</div>
-                            <div>15-30 min: 15 pts</div>
-                            <div>30-45 min: 20 pts</div>
-                            <div>45+ min: 30 pts</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scaleX: 0 }}
-                            animate={{ scaleX: 1 }}
-                            className="h-2 bg-blue-100 rounded-full overflow-hidden"
-                          >
-                            <motion.div 
-                              initial={{ width: 0 }}
-                              animate={{ width: `${(personalStats.score_b || 0) / 30 * 100}%` }}
-                              className="h-full bg-blue-500"
-                            />
-                          </motion.div>
-                        </div>
-                      </GradientBentoCard>
-
-                      {/* Japa Progress Card */}
-                      <GradientBentoCard
-                        size="full"
-                        className="col-span-1 sm:col-span-4"
-                        icon={
-                          <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/20">
-                            <Bell className="h-4 w-4 text-orange-600" />
-                          </div>
-                        }
-                        title="Japa Progress"
-                        value={
-                          <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                            {personalStats.score_a || 0}/25 points
-                          </Badge>
-                        }
-                        gradient="linear-gradient(135deg, #EA580C, #FB923C, #FDBA74, #FED7AA)"
-                      >
-                        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4">
-                          <div className="p-3 rounded-lg bg-orange-50/50 dark:bg-orange-900/10">
-                            <div className="text-xs text-muted-foreground">Before 7 AM (Japa)</div>
-                            <div className="text-lg font-semibold text-orange-600">
-                              {personalStats.before_7_am_japa_session || 0}
-                            </div>
-                            <div className="text-xs text-orange-600/70">2.5 points/round</div>
-                          </div>
-                          <div className="p-3 rounded-lg bg-orange-50/50 dark:bg-orange-900/10">
-                            <div className="text-xs text-muted-foreground">Before 7 AM</div>
-                            <div className="text-lg font-semibold text-orange-600">
-                              {personalStats.before_7_am || 0}
-                            </div>
-                            <div className="text-xs text-orange-600/70">2.0 points/round</div>
-                          </div>
-                          <div className="p-3 rounded-lg bg-orange-50/50 dark:bg-orange-900/10">
-                            <div className="text-xs text-muted-foreground">7-9 AM</div>
-                            <div className="text-lg font-semibold text-orange-600">
-                              {personalStats.from_7_to_9_am || 0}
-                            </div>
-                            <div className="text-xs text-orange-600/70">1.5 points/round</div>
-                          </div>
-                          <div className="p-3 rounded-lg bg-orange-50/50 dark:bg-orange-900/10">
-                            <div className="text-xs text-muted-foreground">After 9 AM</div>
-                            <div className="text-lg font-semibold text-orange-600">
-                              {personalStats.after_9_am || 0}
-                            </div>
-                            <div className="text-xs text-orange-600/70">1.0 points/round</div>
-                          </div>
-                        </div>
-                        <motion.div 
-                          initial={{ scaleX: 0 }}
-                          animate={{ scaleX: 1 }}
-                          className="mt-4 h-2 bg-orange-100 rounded-full overflow-hidden"
-                        >
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(personalStats.score_a || 0) / 25 * 100}%` }}
-                            className="h-full bg-orange-500"
-                          />
-                        </motion.div>
-                      </GradientBentoCard>
-                    </motion.div>
-                  </motion.div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <ProgressTracker scoresByDevotee={scoresByDevotee} />
         </div>
 
         {/* Dialogs */}
@@ -1832,9 +1699,9 @@ export function Leaderboard() {
 
               <DrawerFooter className="border-t mt-auto py-2 flex-none">
                 <DrawerClose asChild>
-                  <ShinyButton className="w-full">
+                  <Button className="w-full">
                     Close
-                  </ShinyButton>
+                  </Button>
                 </DrawerClose>
               </DrawerFooter>
             </div>

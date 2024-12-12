@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 interface SadhanaRecord {
   date: string;
@@ -204,6 +205,11 @@ export function SadhanaDataTable() {
   const [selectedRecord, setSelectedRecord] = useState<SadhanaRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [randomQuote, setRandomQuote] = useState(VANIQUOTES[0]);
+  const [selectedWeek, setSelectedWeek] = useState<number>(getWeekNumber(new Date()));
+  const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [devotees, setDevotees] = useState<string[]>([]);
+  const [selectedDevotee, setSelectedDevotee] = useState<string>("");
 
   const handleViewDetails = (record: SadhanaRecord) => {
     setSelectedRecord(record);
@@ -311,16 +317,46 @@ export function SadhanaDataTable() {
     },
   ];
 
+  const fetchDevotees = async () => {
+    const { data, error } = await supabase
+      .from('sadhna_report_view')
+      .select('devotee_name')
+      .order('devotee_name');
+
+    if (data && !error) {
+      const uniqueDevotees = Array.from(new Set(data.map(d => d.devotee_name)));
+      setDevotees(uniqueDevotees);
+    }
+  };
+
+  useEffect(() => {
+    fetchDevotees();
+  }, []);
+
   const refreshData = async (pageIndex = 0) => {
     setIsLoading(true);
-    const startRange = pageIndex * PAGE_SIZE;
-    const endRange = startRange + PAGE_SIZE - 1;
+    const startRange = pageIndex * pageSize;
+    const endRange = startRange + pageSize - 1;
 
     try {
-      const { data: sadhanaData, count, error } = await supabase
+      let query = supabase
         .from('sadhna_report_view')
         .select('*', { count: 'exact' })
-        .order('date', { ascending: false })
+        .order('date', { ascending: false });
+
+      if (selectedWeek) {
+        const year = new Date().getFullYear();
+        const { start, end } = getWeekDates(selectedWeek, year);
+        query = query
+          .gte('date', start)
+          .lte('date', end);
+      }
+
+      if (selectedDevotee) {
+        query = query.eq('devotee_name', selectedDevotee);
+      }
+
+      const { data: sadhanaData, count, error } = await query
         .range(startRange, endRange);
 
       if (sadhanaData && !error) {
@@ -330,7 +366,7 @@ export function SadhanaDataTable() {
         }));
         
         setData(formattedData);
-        setTotalPages(Math.ceil((count || 0) / PAGE_SIZE));
+        setTotalPages(Math.ceil((count || 0) / pageSize));
         setPage(pageIndex);
       }
     } catch (error) {
@@ -370,6 +406,12 @@ export function SadhanaDataTable() {
   }, []);
 
   useEffect(() => {
+    const currentWeek = getWeekNumber(new Date());
+    const weeks = Array.from({ length: currentWeek }, (_, i) => currentWeek - i);
+    setAvailableWeeks(weeks);
+  }, []);
+
+  useEffect(() => {
     // Set a random quote on component mount
     const randomIndex = Math.floor(Math.random() * VANIQUOTES.length);
     setRandomQuote(VANIQUOTES[randomIndex]);
@@ -396,6 +438,27 @@ export function SadhanaDataTable() {
       columnVisibility,
     },
   });
+
+  function getWeekNumber(date: Date): number {
+    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  }
+
+  function getWeekDates(weekNumber: number, year: number) {
+    const firstDayOfYear = new Date(year, 0, 1);
+    const firstWeekDay = firstDayOfYear.getDay();
+    const daysToAdd = (weekNumber - 1) * 7 - firstWeekDay;
+    
+    const weekStart = new Date(year, 0, 1 + daysToAdd);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
+    return {
+      start: weekStart.toISOString().split('T')[0],
+      end: weekEnd.toISOString().split('T')[0]
+    };
+  }
 
   return (
     <>
@@ -432,40 +495,102 @@ export function SadhanaDataTable() {
           </div>
         </CardHeader>
         <CardContent className="p-3">
-          <div className="flex flex-col sm:flex-row items-center gap-2 pb-2">
-            <Input
-              placeholder="Filter by devotee..."
-              value={(table.getColumn("devotee_name")?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn("devotee_name")?.setFilterValue(event.target.value)
-              }
-              className="w-full h-8 text-xs sm:max-w-xs"
-              disabled={isLoading}
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs" disabled={isLoading}>
-                  Columns <ChevronDown className="ml-1 h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[150px]">
-                {table
-                  .getAllColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize text-xs"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
+          <div className="space-y-2 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              <Select
+                value={selectedDevotee || "all"}
+                onValueChange={(value) => {
+                  const devotee = value === "all" ? "" : value;
+                  setSelectedDevotee(devotee);
+                  table.getColumn("devotee_name")?.setFilterValue(devotee);
+                  refreshData(0);
+                }}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder="👤 Select devotee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Devotees</SelectItem>
+                  {devotees.map((devotee) => (
+                    <SelectItem key={devotee} value={devotee}>
+                      {devotee}
+                    </SelectItem>
                   ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedWeek.toString()}
+                onValueChange={(value) => {
+                  const weekNum = parseInt(value);
+                  setSelectedWeek(weekNum);
+                  refreshData(0);
+                }}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder="📅 Select week" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">All Weeks</SelectItem>
+                  {availableWeeks.map((week) => (
+                    <SelectItem key={week} value={week.toString()}>
+                      Week {week}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={pageSize.toString()}
+                onValueChange={(value) => {
+                  const newSize = parseInt(value);
+                  setPageSize(newSize);
+                  refreshData(0);
+                }}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder="📊 Records per page" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[5, 10, 20, 50, 100].map((size) => (
+                    <SelectItem key={size} value={size.toString()}>
+                      {size} per page
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full h-8 text-xs justify-between" 
+                    disabled={isLoading}
+                  >
+                    <span>👁️ Columns</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[150px]">
+                  {table
+                    .getAllColumns()
+                    .filter((column) => column.getCanHide())
+                    .map((column) => (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize text-xs"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                      >
+                        {column.id}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           <div className="rounded-md border">
             <Table>
