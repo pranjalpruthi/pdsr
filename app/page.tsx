@@ -22,7 +22,6 @@ import { ProgressTracker } from "@/components/sadhana/progress-tracker";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase/client";
 import { krishnaNames } from "@/lib/constants/krishna-names";
-import Snowfall from 'react-snowfall';
 
 export default function Home() {
   // Animation variants
@@ -110,20 +109,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative overflow-hidden pb-16 md:pb-0">
-      <Snowfall
-        snowflakeCount={200}
-        radius={[0.5, 1.5]}
-        speed={[0.5, 2.0]}
-        wind={[-0.5, 2.0]}
-        color="rgba(255,255,255,0.3)"
-        style={{
-          position: 'fixed',
-          width: '100vw',
-          height: '100vh',
-          zIndex: 50
-        }}
-      />
-
       {/* Background Image with reduced opacity */}
       <div className="fixed right-0 top-0 h-full w-1/3 -z-10">
         <div className="absolute inset-0 bg-gradient-to-l from-transparent to-background" />
@@ -180,7 +165,14 @@ export default function Home() {
               alt="Health Worker Light Skin Tone" 
               width="55" 
               height="55"
-              className="inline-block"
+              className="inline-block dark:hidden"
+            />
+            <img 
+              src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Cold%20Face.png" 
+              alt="Cold Face" 
+              width="55" 
+              height="55"
+              className="hidden dark:inline-block"
             />
           </motion.div>
 
