@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback, memo } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -13,7 +14,17 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown, RefreshCw, Eye, QuoteIcon } from "lucide-react";
+import {
+  ArrowUpDown,
+  ChevronDown,
+  RefreshCw,
+  Eye,
+  QuoteIcon,
+  Calendar,
+  Search,
+  Filter,
+  BarChart2,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +33,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Table,
@@ -51,6 +63,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Calendar as CalendarIcon } from "@/components/ui/calendar";
+import { format, parseISO } from "date-fns";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 interface SadhanaRecord {
   date: string;
@@ -75,6 +95,10 @@ interface SadhanaRecord {
   score_d: number;
   formatted_monthly: string;
   formatted_weekly: string;
+}
+
+interface DevoteeRecord {
+  devotee_name: string;
 }
 
 const getScoreColors = (score: number, isDark = false) => {
@@ -192,6 +216,40 @@ const VANIQUOTES = [
   // Add more quotes as needed
 ];
 
+// New Statistics Interface
+interface SadhanaStats {
+  averageScore: number;
+  averageRounds: number;
+  totalSubmissions: number;
+  topDevotees: Array<{ name: string; score: number }>;
+}
+
+const ScoreBadge = memo(({ score }: { score: number }) => (
+  <Badge 
+    className={cn(
+      "font-medium select-none",
+      "transition-all duration-300 ease-in-out transform hover:scale-105",
+      "cursor-default",
+      getScoreColors(score, true)
+    )}
+  >
+    {score}
+  </Badge>
+));
+
+const RoundsBadge = memo(({ rounds }: { rounds: number }) => (
+  <Badge 
+    className={cn(
+      "font-medium select-none",
+      "transition-all duration-300 ease-in-out transform hover:scale-105",
+      "cursor-default",
+      getRoundsColors(rounds, true)
+    )}
+  >
+    {rounds}
+  </Badge>
+));
+
 export function SadhanaDataTable() {
   const [data, setData] = useState<SadhanaRecord[]>([]);
   const [page, setPage] = useState(0);
@@ -210,6 +268,257 @@ export function SadhanaDataTable() {
   const [pageSize, setPageSize] = useState<number>(10);
   const [devotees, setDevotees] = useState<string[]>([]);
   const [selectedDevotee, setSelectedDevotee] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 500);
+  const [stats, setStats] = useState<SadhanaStats | null>(null);
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+
+  // Memoized Filters
+  const filters = useMemo(() => ({
+    highScorers: (record: SadhanaRecord) => record.total_score >= 90,
+    lowRounds: (record: SadhanaRecord) => record.total_rounds < 16,
+    earlyRisers: (record: SadhanaRecord) => record.before_7_am_japa_session > 0,
+  }), []);
+
+  // Calculate Statistics
+  const calculateStats = useCallback((data: SadhanaRecord[]) => {
+    const stats: SadhanaStats = {
+      averageScore: 0,
+      averageRounds: 0,
+      totalSubmissions: data.length,
+      topDevotees: []
+    };
+
+    if (data.length > 0) {
+      stats.averageScore = data.reduce((acc, curr) => acc + curr.total_score, 0) / data.length;
+      stats.averageRounds = data.reduce((acc, curr) => acc + curr.total_rounds, 0) / data.length;
+      
+      // Get top performers
+      const devoteeScores = data.reduce((acc, curr) => {
+        if (!acc[curr.devotee_name]) {
+          acc[curr.devotee_name] = { total: 0, count: 0 };
+        }
+        acc[curr.devotee_name].total += curr.total_score;
+        acc[curr.devotee_name].count++;
+        return acc;
+      }, {} as Record<string, { total: number; count: number }>);
+
+      stats.topDevotees = Object.entries(devoteeScores)
+        .map(([name, { total, count }]) => ({
+          name,
+          score: total / count
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+    }
+
+    return stats;
+  }, []);
+
+  // Enhanced Data Fetching
+  const fetchData = useCallback(async (
+    pageIndex: number,
+    filters: { week?: number, devotee?: string, search?: string }
+  ) => {
+    setIsLoading(true);
+    const startRange = pageIndex * pageSize;
+    const endRange = startRange + pageSize - 1;
+
+    try {
+      let query = supabase
+        .from('sadhna_report_view')
+        .select('*', { count: 'exact' });
+
+      // Apply week filter with proper date range
+      if (filters.week) {
+        const { start, end } = getWeekDates(filters.week, new Date().getFullYear());
+        query = query
+          .gte('date', start)
+          .lte('date', end)
+          .order('date', { ascending: false });
+      }
+
+      // Apply devotee filter if selected
+      if (filters.devotee) {
+        query = query.eq('devotee_name', filters.devotee);
+      }
+
+      // Apply search filter
+      if (filters.search) {
+        query = query.or(`devotee_name.ilike.%${filters.search}%,book_name.ilike.%${filters.search}%`);
+      }
+
+      // Apply pagination
+      query = query.range(startRange, endRange);
+
+      const { data: sadhanaData, count, error } = await query;
+
+      if (error) throw error;
+
+      if (sadhanaData) {
+        const formattedData = sadhanaData.map(record => ({
+          ...record,
+          date: new Date(record.date).toLocaleDateString(),
+        }));
+        
+        setData(formattedData);
+        setTotalPages(Math.ceil((count || 0) / pageSize));
+        setPage(pageIndex);
+        
+        // Update statistics
+        setStats(calculateStats(formattedData));
+
+        // Fetch all devotees for the selected week
+        if (filters.week) {
+          const { start, end } = getWeekDates(filters.week, new Date().getFullYear());
+          const { data: allDevotees } = await supabase
+          .from('sadhna_report_view')
+          .select('distinct(devotee_name)')
+          .gte('date', start)
+          .lte('date', end);
+
+          if (allDevotees) {
+            const uniqueDevotees = allDevotees
+              .map(d => d.distinct)
+              .flat()
+              .map(d => d.devotee_name)
+              .filter(Boolean)
+              .sort();
+            setDevotees(uniqueDevotees);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pageSize, calculateStats]);
+
+  // Enhanced UI Components
+  const StatisticCard = ({ title, value, icon: Icon }: { title: string; value: string | number; icon: any }) => (
+    <div className="rounded-lg border p-4 flex items-center space-x-4">
+      <div className="p-2 bg-primary/10 rounded-full">
+        <Icon className="h-5 w-5 text-primary" />
+      </div>
+      <div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-2xl font-bold">{value}</p>
+      </div>
+    </div>
+  );
+
+  // Statistics Dashboard
+  const StatisticsDashboard = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <StatisticCard
+        title="Average Score"
+        value={stats?.averageScore.toFixed(1) || 0}
+        icon={BarChart2}
+      />
+      <StatisticCard
+        title="Average Rounds"
+        value={stats?.averageRounds.toFixed(1) || 0}
+        icon={RefreshCw}
+      />
+      <StatisticCard
+        title="Total Submissions"
+        value={stats?.totalSubmissions || 0}
+        icon={Calendar}
+      />
+      <StatisticCard
+        title="Active Filters"
+        value={activeFilters.length}
+        icon={Filter}
+      />
+    </div>
+  );
+
+  // Enhanced Search and Filter Bar
+  const SearchAndFilterBar = () => {
+    const { start, end } = getWeekDates(selectedWeek, new Date().getFullYear());
+    const startDate = parseISO(start);
+    const endDate = parseISO(end);
+
+    return (
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search devotees or books..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              <span>Week {selectedWeek}: </span>
+              <span className="ml-1 text-muted-foreground">
+                {format(startDate, 'dd MMM')} - {format(endDate, 'dd MMM')}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <CalendarComponent
+              mode="single"
+              selected={startDate}
+              onSelect={(date: Date | undefined) => {
+                if (date) {
+                  const weekNum = getWeekNumber(date);
+                  setSelectedWeek(weekNum);
+                  fetchData(0, {
+                    week: weekNum,
+                    devotee: selectedDevotee,
+                    search: debouncedSearch
+                  });
+                }
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full sm:w-auto">
+              <Filter className="mr-2 h-4 w-4" />
+              Filters ({activeFilters.length})
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[200px]">
+            {Object.entries(filters).map(([key, filter]) => (
+              <DropdownMenuCheckboxItem
+                key={key}
+                checked={activeFilters.includes(key)}
+                onCheckedChange={(checked) => {
+                  setActiveFilters(prev =>
+                    checked
+                      ? [...prev, key]
+                      : prev.filter(f => f !== key)
+                  );
+                }}
+              >
+                {key.replace(/([A-Z])/g, ' $1').trim()}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  };
+
+  // Effect for search and filters
+  useEffect(() => {
+    fetchData(page, {
+      week: selectedWeek,
+      devotee: selectedDevotee,
+      search: debouncedSearch
+    });
+  }, [debouncedSearch, selectedWeek, selectedDevotee, page, fetchData]);
 
   const handleViewDetails = (record: SadhanaRecord) => {
     setSelectedRecord(record);
@@ -224,6 +533,16 @@ export function SadhanaDataTable() {
           📅 Date <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
+      cell: ({ row }) => {
+        // Ensure proper date parsing
+        const date = new Date(row.original.date);
+        return (
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{format(date, 'EEE')}</span>
+            <span>{format(date, 'dd MMM')}</span>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "report_id",
@@ -254,48 +573,12 @@ export function SadhanaDataTable() {
           🎯 Score <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
-      cell: ({ row }) => {
-        const score = row.getValue("total_score") as number;
-        return (
-          <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          >
-            <Badge className={cn(
-              "font-medium transition-colors",
-              getScoreColors(score, true)
-            )}>
-              {score}
-            </Badge>
-          </motion.div>
-        );
-      },
+      cell: ({ row }) => <ScoreBadge score={row.getValue("total_score")} />
     },
     {
       accessorKey: "total_rounds",
       header: "📿 Rounds",
-      cell: ({ row }) => {
-        const rounds = row.getValue("total_rounds") as number;
-        return (
-          <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          >
-            <Badge className={cn(
-              "font-medium transition-colors",
-              getRoundsColors(rounds, true)
-            )}>
-              {rounds}
-            </Badge>
-          </motion.div>
-        );
-      },
+      cell: ({ row }) => <RoundsBadge rounds={row.getValue("total_rounds")} />
     },
     {
       id: "actions",
@@ -333,77 +616,15 @@ export function SadhanaDataTable() {
     fetchDevotees();
   }, []);
 
-  const refreshData = async (pageIndex = 0) => {
-    setIsLoading(true);
-    const startRange = pageIndex * pageSize;
-    const endRange = startRange + pageSize - 1;
-
-    try {
-      let query = supabase
-        .from('sadhna_report_view')
-        .select('*', { count: 'exact' })
-        .order('date', { ascending: false });
-
-      if (selectedWeek) {
-        const year = new Date().getFullYear();
-        const { start, end } = getWeekDates(selectedWeek, year);
-        query = query
-          .gte('date', start)
-          .lte('date', end);
-      }
-
-      if (selectedDevotee) {
-        query = query.eq('devotee_name', selectedDevotee);
-      }
-
-      const { data: sadhanaData, count, error } = await query
-        .range(startRange, endRange);
-
-      if (sadhanaData && !error) {
-        const formattedData = sadhanaData.map(record => ({
-          ...record,
-          date: new Date(record.date).toLocaleDateString(),
-        }));
-        
-        setData(formattedData);
-        setTotalPages(Math.ceil((count || 0) / pageSize));
-        setPage(pageIndex);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handlePageChange = (newPage: number) => {
     if (newPage >= 0 && newPage < totalPages) {
-      refreshData(newPage);
+      fetchData(newPage, {
+        week: selectedWeek,
+        devotee: selectedDevotee,
+        search: debouncedSearch
+      });
     }
   };
-
-  useEffect(() => {
-    refreshData(0);
-
-    const channel = supabase
-      .channel('sadhna_report_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sadhna_report',
-        },
-        () => {
-          refreshData(0);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     const currentWeek = getWeekNumber(new Date());
@@ -440,23 +661,34 @@ export function SadhanaDataTable() {
   });
 
   function getWeekNumber(date: Date): number {
-    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
-    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+    const target = new Date(date.valueOf());
+    const dayNumber = (date.getDay() + 6) % 7; // Adjust day number to make Monday = 0
+    target.setDate(target.getDate() - dayNumber + 3); // Adjust to nearest Thursday
+    const firstThursday = target.valueOf();
+    target.setMonth(0, 1);
+    if (target.getDay() !== 4) {
+      target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+    }
+    return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
   }
 
   function getWeekDates(weekNumber: number, year: number) {
-    const firstDayOfYear = new Date(year, 0, 1);
-    const firstWeekDay = firstDayOfYear.getDay();
-    const daysToAdd = (weekNumber - 1) * 7 - firstWeekDay;
+    // Create date from year and week number
+    const firstDayOfWeek = new Date(year, 0, 1 + (weekNumber - 1) * 7);
     
-    const weekStart = new Date(year, 0, 1 + daysToAdd);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    
+    // Adjust to the nearest Monday (ISO week starts on Monday)
+    while (firstDayOfWeek.getDay() !== 1) {
+      firstDayOfWeek.setDate(firstDayOfWeek.getDate() - 1);
+    }
+
+    // Calculate the end of the week (Sunday)
+    const lastDayOfWeek = new Date(firstDayOfWeek);
+    lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+
+    // Format dates to YYYY-MM-DD
     return {
-      start: weekStart.toISOString().split('T')[0],
-      end: weekEnd.toISOString().split('T')[0]
+      start: firstDayOfWeek.toISOString().split('T')[0],
+      end: lastDayOfWeek.toISOString().split('T')[0]
     };
   }
 
@@ -487,7 +719,11 @@ export function SadhanaDataTable() {
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0"
-              onClick={() => refreshData(0)}
+              onClick={() => fetchData(0, {
+                week: selectedWeek,
+                devotee: selectedDevotee,
+                search: debouncedSearch
+              })}
               disabled={isLoading}
             >
               <RefreshCw className="h-3 w-3" />
@@ -503,7 +739,11 @@ export function SadhanaDataTable() {
                   const devotee = value === "all" ? "" : value;
                   setSelectedDevotee(devotee);
                   table.getColumn("devotee_name")?.setFilterValue(devotee);
-                  refreshData(0);
+                  fetchData(0, {
+                    week: selectedWeek,
+                    devotee: devotee,
+                    search: debouncedSearch
+                  });
                 }}
               >
                 <SelectTrigger className="w-full h-8 text-xs">
@@ -511,8 +751,8 @@ export function SadhanaDataTable() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Devotees</SelectItem>
-                  {devotees.map((devotee) => (
-                    <SelectItem key={devotee} value={devotee}>
+                  {devotees.map((devotee, index) => (
+                    <SelectItem key={`${devotee}-${index}`} value={devotee}>
                       {devotee}
                     </SelectItem>
                   ))}
@@ -524,7 +764,11 @@ export function SadhanaDataTable() {
                 onValueChange={(value) => {
                   const weekNum = parseInt(value);
                   setSelectedWeek(weekNum);
-                  refreshData(0);
+                  fetchData(0, {
+                    week: weekNum,
+                    devotee: selectedDevotee,
+                    search: debouncedSearch
+                  });
                 }}
               >
                 <SelectTrigger className="w-full h-8 text-xs">
@@ -545,7 +789,11 @@ export function SadhanaDataTable() {
                 onValueChange={(value) => {
                   const newSize = parseInt(value);
                   setPageSize(newSize);
-                  refreshData(0);
+                  fetchData(0, {
+                    week: selectedWeek,
+                    devotee: selectedDevotee,
+                    search: debouncedSearch
+                  });
                 }}
               >
                 <SelectTrigger className="w-full h-8 text-xs">

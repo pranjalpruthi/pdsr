@@ -476,8 +476,19 @@ interface LeaderboardStats {
 // Add this helper function at the top level
 function getWeekNumber(date = new Date()) {
   const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
-  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  const firstMonday = new Date(firstDayOfYear);
+  firstMonday.setDate(1 + (8 - firstDayOfYear.getDay()) % 7);
+  
+  if (date < firstMonday) {
+    // If the date is before the first Monday, it's part of the last week of previous year
+    return getWeekNumber(new Date(date.getFullYear() - 1, 11, 31));
+  }
+  
+  const daysSinceFirstMonday = Math.floor(
+    (date.getTime() - firstMonday.getTime()) / (24 * 60 * 60 * 1000)
+  );
+  
+  return Math.floor(daysSinceFirstMonday / 7) + 1;
 }
 
 // Add these gradient configurations
@@ -623,13 +634,29 @@ const fetchScoreData = async (devoteeName: string) => {
 
 // Add these helper functions at the top level
 function getWeekDates(weekNumber: number, year: number) {
+  // Get the first day of the year
   const firstDayOfYear = new Date(year, 0, 1);
-  const firstWeekDay = firstDayOfYear.getDay();
-  const daysToAdd = (weekNumber - 1) * 7 - firstWeekDay;
   
-  const weekStart = new Date(year, 0, 1 + daysToAdd);
+  // Calculate the offset to the first Monday of the year
+  const firstMonday = new Date(year, 0, 1 + (8 - firstDayOfYear.getDay()) % 7);
+  
+  // Calculate the start date for the given week
+  const weekStart = new Date(firstMonday);
+  weekStart.setDate(firstMonday.getDate() + (weekNumber - 1) * 7);
+  
+  // Calculate the end date (Sunday) for the given week
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
+  
+  // If it's the current week and today is before Sunday,
+  // adjust the end date to today
+  const today = new Date();
+  if (
+    weekNumber === getWeekNumber(today) &&
+    today < weekEnd
+  ) {
+    weekEnd.setTime(today.getTime());
+  }
   
   return {
     start: weekStart.toISOString().split('T')[0],
