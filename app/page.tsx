@@ -21,7 +21,6 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { ProgressTracker } from "@/components/sadhana/progress-tracker";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase/client";
-import { krishnaNames } from "@/lib/constants/krishna-names";
 
 export default function Home() {
   // Animation variants
@@ -60,11 +59,6 @@ export default function Home() {
   const [isProgressDrawerOpen, setIsProgressDrawerOpen] = useState(false);
   const [scoresByDevotee, setScoresByDevotee] = useState<Record<string, number[]>>({});
 
-  // Add state for Krishna name typewriter
-  const [currentKrishnaName, setCurrentKrishnaName] = useState("");
-  const [nameIndex, setNameIndex] = useState(0);
-  const [charIndex, setCharIndex] = useState(0);
-
   // Add useEffect to fetch scores data
   useEffect(() => {
     const fetchScores = async () => {
@@ -85,27 +79,6 @@ export default function Home() {
     };
     fetchScores();
   }, []);
-
-  // Add typewriter effect for Krishna names
-  useEffect(() => {
-    const currentName = krishnaNames[nameIndex];
-    
-    const typewriterTimeout = setTimeout(() => {
-      if (charIndex < currentName.length) {
-        setCurrentKrishnaName(currentName.slice(0, charIndex + 1));
-        setCharIndex(charIndex + 1);
-      } else {
-        // Wait longer at the end of each name
-        setTimeout(() => {
-          setCharIndex(0);
-          setNameIndex((prev) => (prev + 1) % krishnaNames.length);
-          setCurrentKrishnaName("");
-        }, 2000);
-      }
-    }, 100);
-
-    return () => clearTimeout(typewriterTimeout);
-  }, [nameIndex, charIndex]);
 
   return (
     <div className="min-h-screen relative overflow-hidden pb-16 md:pb-0">
@@ -213,17 +186,6 @@ export default function Home() {
           <motion.div className="flex justify-center gap-2 flex-wrap">
             <Badge variant="secondary" className="text-sm px-4 py-2">
               🫡 Kindly fill this 📝 Hare Krishna DSR before ⏰12 Midnight 🌏 KST
-            </Badge>
-            
-            {/* New Krishna Name Badge */}
-            <Badge 
-              variant="secondary" 
-              className="text-sm px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 
-                         dark:from-purple-950/30 dark:to-pink-950/30 
-                         text-purple-700 dark:text-purple-300
-                         border-purple-200/50 transition-all duration-500"
-            >
-              ✨ Krishna also known as: {currentKrishnaName || "Loading..."}
             </Badge>
           </motion.div>
         </motion.div>
