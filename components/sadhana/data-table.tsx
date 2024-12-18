@@ -228,8 +228,6 @@ const ScoreBadge = memo(({ score }: { score: number }) => (
   <Badge 
     className={cn(
       "font-medium select-none",
-      "transition-all duration-300 ease-in-out transform hover:scale-105",
-      "cursor-default",
       getScoreColors(score, true)
     )}
   >
@@ -241,8 +239,6 @@ const RoundsBadge = memo(({ rounds }: { rounds: number }) => (
   <Badge 
     className={cn(
       "font-medium select-none",
-      "transition-all duration-300 ease-in-out transform hover:scale-105",
-      "cursor-default",
       getRoundsColors(rounds, true)
     )}
   >
@@ -329,71 +325,45 @@ export function SadhanaDataTable() {
         .from('sadhna_report_view')
         .select('*', { count: 'exact' });
 
-      // Apply week filter with proper date range
+      // Apply filters
       if (filters.week) {
         const { start, end } = getWeekDates(filters.week, new Date().getFullYear());
         query = query
           .gte('date', start)
-          .lte('date', end)
-          .order('date', { ascending: false });
+          .lte('date', end);
       }
 
-      // Apply devotee filter if selected
       if (filters.devotee) {
         query = query.eq('devotee_name', filters.devotee);
       }
 
-      // Apply search filter
       if (filters.search) {
-        query = query.or(`devotee_name.ilike.%${filters.search}%,book_name.ilike.%${filters.search}%`);
+        query = query.ilike('devotee_name', `%${filters.search}%`);
       }
 
       // Apply pagination
-      query = query.range(startRange, endRange);
+      query = query
+        .order('date', { ascending: false })
+        .range(startRange, endRange);
 
       const { data: sadhanaData, count, error } = await query;
 
       if (error) throw error;
 
       if (sadhanaData) {
-        const formattedData = sadhanaData.map(record => ({
+        setData(sadhanaData.map(record => ({
           ...record,
-          date: new Date(record.date).toLocaleDateString(),
-        }));
-        
-        setData(formattedData);
+          date: new Date(record.date).toLocaleDateString()
+        })));
         setTotalPages(Math.ceil((count || 0) / pageSize));
         setPage(pageIndex);
-        
-        // Update statistics
-        setStats(calculateStats(formattedData));
-
-        // Fetch all devotees for the selected week
-        if (filters.week) {
-          const { start, end } = getWeekDates(filters.week, new Date().getFullYear());
-          const { data: allDevotees } = await supabase
-          .from('sadhna_report_view')
-          .select('distinct(devotee_name)')
-          .gte('date', start)
-          .lte('date', end);
-
-          if (allDevotees) {
-            const uniqueDevotees = allDevotees
-              .map(d => d.distinct)
-              .flat()
-              .map(d => d.devotee_name)
-              .filter(Boolean)
-              .sort();
-            setDevotees(uniqueDevotees);
-          }
-        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [pageSize, calculateStats]);
+  }, [pageSize]);
 
   // Enhanced UI Components
   const StatisticCard = ({ title, value, icon: Icon }: { title: string; value: string | number; icon: any }) => (
@@ -528,20 +498,10 @@ export function SadhanaDataTable() {
   const columns: ColumnDef<SadhanaRecord>[] = [
     {
       accessorKey: "date",
-      header: ({ column }) => (
-        <Button variant="ghost" size="sm" className="h-7 px-2 -ml-2" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          📅 Date <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
+      header: "📅 Date",
       cell: ({ row }) => {
-        // Ensure proper date parsing
-        const date = new Date(row.original.date);
-        return (
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{format(date, 'EEE')}</span>
-            <span>{format(date, 'dd MMM')}</span>
-          </div>
-        );
+        const date = new Date(row.getValue("date"));
+        return date.toLocaleDateString();
       },
     },
     {
@@ -893,98 +853,41 @@ export function SadhanaDataTable() {
               </TableBody>
             </Table>
           </div>
-          <div className="mt-4 flex items-center justify-between">
-            {isLoading ? (
-              <>
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-64" />
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  {table.getFilteredRowModel().rows.length} records
-                </p>
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious 
-                        onClick={() => handlePageChange(page - 1)}
-                        className={cn(
-                          "cursor-pointer",
-                          page === 0 && "pointer-events-none opacity-50"
-                        )}
-                      />
-                    </PaginationItem>
-                    
-                    {/* Show first page */}
-                    {page > 1 && (
-                      <PaginationItem>
-                        <PaginationLink
-                          onClick={() => handlePageChange(0)}
-                        >
-                          1
-                        </PaginationLink>
-                      </PaginationItem>
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">
+              {table.getFilteredRowModel().rows.length} records
+            </p>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => handlePageChange(page - 1)}
+                    className={cn(
+                      "cursor-pointer",
+                      page === 0 && "pointer-events-none opacity-50"
                     )}
-
-                    {/* Show ellipsis if needed */}
-                    {page > 2 && (
-                      <PaginationItem>
-                        <PaginationLink>...</PaginationLink>
-                      </PaginationItem>
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink isActive>{page + 1}</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => handlePageChange(page + 1)}
+                    className={cn(
+                      "cursor-pointer",
+                      page === totalPages - 1 && "pointer-events-none opacity-50"
                     )}
-
-                    {/* Show current page and neighbors */}
-                    {Array.from({ length: 3 }, (_, i) => page + i - 1)
-                      .filter(pageNum => pageNum >= 0 && pageNum < totalPages)
-                      .map(pageNum => (
-                        <PaginationItem key={pageNum}>
-                          <PaginationLink
-                            onClick={() => handlePageChange(pageNum)}
-                            isActive={pageNum === page}
-                          >
-                            {pageNum + 1}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ))}
-
-                    {/* Show ellipsis if needed */}
-                    {page < totalPages - 3 && (
-                      <PaginationItem>
-                        <PaginationLink>...</PaginationLink>
-                      </PaginationItem>
-                    )}
-
-                    {/* Show last page */}
-                    {page < totalPages - 2 && (
-                      <PaginationItem>
-                        <PaginationLink
-                          onClick={() => handlePageChange(totalPages - 1)}
-                        >
-                          {totalPages}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )}
-
-                    <PaginationItem>
-                      <PaginationNext 
-                        onClick={() => handlePageChange(page + 1)}
-                        className={cn(
-                          "cursor-pointer",
-                          page === totalPages - 1 && "pointer-events-none opacity-50"
-                        )}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </>
-            )}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         </CardContent>
       </Card>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden p-0 gap-0 bg-background/80 backdrop-blur-md border border-muted">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-0">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
