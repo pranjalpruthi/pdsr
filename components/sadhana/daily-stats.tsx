@@ -3,11 +3,25 @@
 import * as React from "react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { supabase } from "@/lib/supabase/client"
 import { Sparklines, SparklinesLine } from "react-sparklines"
-import { BookOpen, Headphones, HeartHandshake, BarChart3 } from "lucide-react"
+import { BookOpen, Headphones, HeartHandshake, BarChart3, Check, ChevronsUpDown } from "lucide-react"
 import { GradientBentoCard } from "@/components/ui/gradient-bento-card"
+import { Button } from "@/components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 
 interface ActivityData {
   date: string
@@ -31,12 +45,13 @@ export function DailyStats() {
   const [devotees, setDevotees] = React.useState<string[]>([])
   const [selectedDevotee, setSelectedDevotee] = React.useState<string>("")
   const [totalScore, setTotalScore] = React.useState<number>(0)
+  const [openDevotee, setOpenDevotee] = React.useState(false)
 
   // Fetch devotees for dropdown
   React.useEffect(() => {
     async function fetchDevotees() {
       const { data } = await supabase
-        .from('sadhna_report_view')
+        .from('devotees')
         .select('devotee_name')
         .order('devotee_name')
 
@@ -132,21 +147,54 @@ export function DailyStats() {
             </CardTitle>
             <CardDescription>Track daily sadhana scores</CardDescription>
           </div>
-          <Select
-            value={selectedDevotee}
-            onValueChange={setSelectedDevotee}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select devotee" />
-            </SelectTrigger>
-            <SelectContent>
-              {devotees.map((devotee) => (
-                <SelectItem key={devotee} value={devotee}>
-                  {devotee}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={openDevotee} onOpenChange={setOpenDevotee}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openDevotee}
+                className="w-[200px] justify-between"
+              >
+                <span className="truncate">
+                  {selectedDevotee || "Select devotee"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[220px] p-0">
+              <Command>
+                <CommandInput placeholder="Search devotee..." />
+                <CommandList>
+                  <CommandEmpty>No devotee found.</CommandEmpty>
+                  <CommandGroup>
+                    {devotees.map((devotee) => (
+                      <CommandItem
+                        key={devotee}
+                        value={devotee}
+                        onSelect={() => {
+                          setSelectedDevotee(devotee);
+                          setOpenDevotee(false);
+                        }}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSelectedDevotee(devotee);
+                          setOpenDevotee(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedDevotee === devotee ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {devotee}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </CardHeader>
         <CardContent className="relative">
           <div className="mt-3 flex flex-col">

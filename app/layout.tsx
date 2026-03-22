@@ -2,6 +2,7 @@ import Provider from '@/app/provider'
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import AuthWrapper from '@/components/wrapper/auth-wrapper'
+import { AnnouncementBanner } from "@/components/announcement-banner"
 import { GeistSans } from 'geist/font/sans'
 import type { Metadata } from 'next'
 import './globals.css'
@@ -93,6 +94,7 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
+              <AnnouncementBanner />
               {children}
               <Toaster />
             </ThemeProvider>

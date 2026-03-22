@@ -7,7 +7,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Plus, Minus, Type, MousePointerClick, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -47,15 +55,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress"
 import { NumberPicker } from "@/components/ui/number-picker";
+import { Separator } from "@/components/ui/separator";
 
 
 const formSchema = z.object({
-  date: z.date({
-    required_error: "Date is required",
-  }),
-  devotee_id: z.string({
-    required_error: "Please select a devotee",
-  }),
+  date: z.date({ message: "Date is required" }),
+  devotee_id: z.string({ message: "Please select a devotee" }),
   before_7_am_japa_session: z.number().min(0, "Must be 0 or greater"),
   before_7_am: z.number().min(0, "Must be 0 or greater"),
   from_7_to_9_am: z.number().min(0, "Must be 0 or greater"),
@@ -83,70 +88,77 @@ const formSchema = z.object({
 });
 
 const STEPS = {
-  PERSONAL: 0,
-  JAPA: 1,
-  READING: 2,
-  LECTURE: 3,
-  SEVA: 4,
-  CONFIRM: 5,
+  INPUT: 0,
+  CONFIRM: 1,
 } as const;
 
 const STEPS_TITLES = [
-  "Personal Details",
-  "Japa Rounds",
-  "Book Reading",
-  "Lecture",
-  "Seva",
-  "Confirm",
+  "Fill Details",
+  "Confirm & Submit",
 ];
 
 interface SadhanaFormProps {
   onNavigateToRecords: () => void;
 }
 
-function ConfirmationStep({ values }: { values: z.infer<typeof formSchema> }) {
-  const totalRounds = 
-    values.before_7_am_japa_session + 
-    values.before_7_am + 
-    values.from_7_to_9_am + 
+function ConfirmationStep({ values, textSize }: { values: z.infer<typeof formSchema>, textSize: number }) {
+  const totalRounds =
+    values.before_7_am_japa_session +
+    values.before_7_am +
+    values.from_7_to_9_am +
     values.after_9_am;
 
   return (
     <div className="space-y-6">
       <Alert>
-        <CheckCircledIcon className="h-4 w-4" />
-        <AlertTitle>Please review your sadhana report</AlertTitle>
-        <AlertDescription>
+        <CheckCircledIcon className="h-5 w-5" />
+        <AlertTitle style={{ fontSize: `${textSize}rem` }}>Please review your sadhana report</AlertTitle>
+        <AlertDescription style={{ fontSize: `${textSize * 0.875}rem` }}>
           Verify all details before submitting
         </AlertDescription>
       </Alert>
 
-      <div className="grid gap-4">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <div className="font-medium">Date:</div>
-          <div>{format(values.date, 'PPP')}</div>
-          
-          <div className="font-medium">Total Japa Rounds:</div>
-          <div>{totalRounds} rounds</div>
-          
+      <div className="grid gap-6">
+        <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div className="font-semibold" style={{ fontSize: `${textSize}rem` }}>Date:</div>
+            <div style={{ fontSize: `${textSize}rem` }}>{format(values.date, 'PPP')}</div>
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div className="font-semibold" style={{ fontSize: `${textSize}rem` }}>Total Japa Rounds:</div>
+            <div className="font-bold text-primary" style={{ fontSize: `${textSize * 1.1}rem` }}>{totalRounds} rounds</div>
+          </div>
+
           {values.book_reading_time_min > 0 && (
             <>
-              <div className="font-medium">Book Reading:</div>
-              <div>{values.book_name} ({values.book_reading_time_min} min)</div>
+              <Separator />
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="font-semibold" style={{ fontSize: `${textSize}rem` }}>Book Reading:</div>
+                <div style={{ fontSize: `${textSize}rem` }}>{values.book_name} ({values.book_reading_time_min} min)</div>
+              </div>
             </>
           )}
-          
+
           {values.lecture_time_min > 0 && (
             <>
-              <div className="font-medium">Lecture:</div>
-              <div>{values.lecture_speaker} ({values.lecture_time_min} min)</div>
+              <Separator />
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="font-semibold" style={{ fontSize: `${textSize}rem` }}>Lecture:</div>
+                <div style={{ fontSize: `${textSize}rem` }}>{values.lecture_speaker} ({values.lecture_time_min} min)</div>
+              </div>
             </>
           )}
-          
+
           {values.seva_time_min > 0 && (
             <>
-              <div className="font-medium">Seva:</div>
-              <div>{values.seva_name} ({values.seva_time_min} min)</div>
+              <Separator />
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="font-semibold" style={{ fontSize: `${textSize}rem` }}>Seva:</div>
+                <div style={{ fontSize: `${textSize}rem` }}>{values.seva_name} ({values.seva_time_min} min)</div>
+              </div>
             </>
           )}
         </div>
@@ -159,9 +171,14 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
   const [devotees, setDevotees] = useState<Devotee[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const [step, setStep] = useState<number>(STEPS.PERSONAL);
+  const [step, setStep] = useState<number>(STEPS.INPUT);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  // Accessibility states
+  const [textSize, setTextSize] = useState(1); // rem units
+  const [buttonSize, setButtonSize] = useState(1); // multiplier
+  const [openDevotee, setOpenDevotee] = useState(false);
 
   // Add dimension tracking
   useEffect(() => {
@@ -266,6 +283,16 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
         return;
       }
 
+      const devoteeIdParsed = parseInt(submissionValues.devotee_id, 10);
+      if (isNaN(devoteeIdParsed)) {
+        if (loadingToast) toast.dismiss(loadingToast);
+        toast.error("Required Field Missing", {
+          description: "Please select a valid devotee"
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const scores = calculateScores(
         submissionValues.before_7_am_japa_session,
         submissionValues.before_7_am,
@@ -276,12 +303,25 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
         submissionValues.seva_time_min
       );
 
+      const insertPayload = {
+        date: submissionValues.date,
+        devotee_id: devoteeIdParsed,
+        before_7_am_japa_session: submissionValues.before_7_am_japa_session,
+        before_7_am: submissionValues.before_7_am,
+        from_7_to_9_am: submissionValues.from_7_to_9_am,
+        after_9_am: submissionValues.after_9_am,
+        book_name: submissionValues.book_name || null,
+        book_reading_time_min: submissionValues.book_reading_time_min,
+        lecture_speaker: submissionValues.lecture_speaker || null,
+        lecture_time_min: submissionValues.lecture_time_min,
+        seva_name: submissionValues.seva_name || null,
+        seva_time_min: submissionValues.seva_time_min,
+        ...scores,
+      };
+
       const { data, error } = await supabase
         .from('sadhna_report')
-        .insert([{
-          ...submissionValues,
-          ...scores,
-        }])
+        .insert([insertPayload])
         .select()
         .single();
 
@@ -301,14 +341,14 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
         });
 
         form.reset();
-        setStep(STEPS.PERSONAL); // Reset to first step after successful submission
+        setStep(STEPS.INPUT); // Reset to first step after successful submission
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Submission error:', error);
       if (loadingToast) toast.dismiss(loadingToast);
       toast.error("Submission Failed", {
-        description: error instanceof Error ? error.message : "Please try submitting your report again."
+        description: error?.message || (typeof error === 'string' ? error : "Please try submitting your report again.")
       });
 
     } finally {
@@ -332,65 +372,68 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
 
   // Validate current step fields
   async function validateCurrentStep() {
-    switch(step) {
-      case STEPS.PERSONAL:
-        const personalValid = await form.trigger(['date', 'devotee_id']);
-        if (!personalValid) {
-          toast.error("Please select a devotee and date");
-          return false;
-        }
-        return true;
+    if (step === STEPS.INPUT) {
+      // Validate personal details
+      const personalValid = await form.trigger(['date', 'devotee_id']);
+      if (!personalValid) {
+        toast.error("Please select a devotee and date");
+        return false;
+      }
 
-      case STEPS.JAPA:
-        const japaValid = await form.trigger([
-          'before_7_am_japa_session',
-          'before_7_am',
-          'from_7_to_9_am',
-          'after_9_am'
-        ]);
-        if (!japaValid) {
-          toast.error("Please enter valid japa rounds");
-          return false;
-        }
-        return true;
+      // Validate japa
+      const totalRounds =
+        form.getValues('before_7_am_japa_session') +
+        form.getValues('before_7_am') +
+        form.getValues('from_7_to_9_am') +
+        form.getValues('after_9_am');
 
-      case STEPS.READING:
-        const bookTime = form.getValues('book_reading_time_min');
-        if (bookTime > 0) {
-          const bookValid = await form.trigger(['book_name']);
-          if (!bookValid) {
-            toast.error("Please enter the book name");
-            return false;
-          }
-        }
-        return true;
+      if (totalRounds === 0) {
+        toast.error("Please enter at least one round of japa");
+        return false;
+      }
 
-      case STEPS.LECTURE:
-        const lectureTime = form.getValues('lecture_time_min');
-        if (lectureTime > 0) {
-          const lectureValid = await form.trigger(['lecture_speaker']);
-          if (!lectureValid) {
-            toast.error("Please enter the lecture speaker");
-            return false;
-          }
-        }
-        return true;
+      // Validate reading
+      const bookTime = form.getValues('book_reading_time_min');
+      if (bookTime > 0 && !form.getValues('book_name')) {
+        toast.error("Please enter the book name");
+        return false;
+      }
 
-      case STEPS.SEVA:
-        const sevaTime = form.getValues('seva_time_min');
-        if (sevaTime > 0) {
-          const sevaValid = await form.trigger(['seva_name']);
-          if (!sevaValid) {
-            toast.error("Please enter the seva name");
-            return false;
-          }
-        }
-        return true;
+      // Validate lecture
+      const lectureTime = form.getValues('lecture_time_min');
+      if (lectureTime > 0 && !form.getValues('lecture_speaker')) {
+        toast.error("Please enter the lecture speaker");
+        return false;
+      }
 
-      default:
-        return true;
+      // Validate seva
+      const sevaTime = form.getValues('seva_time_min');
+      if (sevaTime > 0 && !form.getValues('seva_name')) {
+        toast.error("Please enter the seva name");
+        return false;
+      }
+
+      return true;
     }
+    return true;
   }
+
+  // Helper functions for accessibility
+  const increaseTextSize = () => {
+    setTextSize(prev => Math.min(prev + 0.1, 1.5));
+  };
+
+  const decreaseTextSize = () => {
+    setTextSize(prev => Math.max(prev - 0.1, 0.8));
+  };
+
+  const increaseButtonSize = () => {
+    setButtonSize(prev => Math.min(prev + 0.1, 1.5));
+  };
+
+  const decreaseButtonSize = () => {
+    setButtonSize(prev => Math.max(prev - 0.1, 0.8));
+  };
 
   return (
     <div className="pt-6">
@@ -440,6 +483,59 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
                 Step {step + 1} of {Object.keys(STEPS).length}: {STEPS_TITLES[step]}
               </p>
             </div>
+
+            {/* Accessibility Controls */}
+            <div className="flex flex-wrap justify-center gap-4 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <Type className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Text Size:</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={decreaseTextSize}
+                  disabled={textSize <= 0.8}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={increaseTextSize}
+                  disabled={textSize >= 1.5}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <MousePointerClick className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Button Size:</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={decreaseButtonSize}
+                  disabled={buttonSize <= 0.8}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={increaseButtonSize}
+                  disabled={buttonSize >= 1.5}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
 
           <CardContent className="pt-2 pb-6 px-4 sm:px-6">
@@ -453,272 +549,376 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
                     exit={{ x: -50, opacity: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    {step === STEPS.PERSONAL && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="date"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                              <FormLabel>📅 Date</FormLabel>
-                              <Popover>
-                                <PopoverTrigger asChild>
+                    {step === STEPS.INPUT && (
+                      <div className="space-y-8">
+                        {/* Personal Details Section */}
+                        <div className="space-y-4">
+                          <h3
+                            className="font-semibold text-lg border-b pb-2"
+                            style={{ fontSize: `${textSize * 1.125}rem` }}
+                          >
+                            👤 Personal Details
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="date"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>📅 Date</FormLabel>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <FormControl>
+                                        <Button
+                                          variant={"outline"}
+                                          className="w-full pl-3 text-left font-normal"
+                                          style={{
+                                            height: `${buttonSize * 2.5}rem`,
+                                            fontSize: `${textSize}rem`
+                                          }}
+                                        >
+                                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        </Button>
+                                      </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                      <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={field.onChange}
+                                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                        initialFocus
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="devotee_id"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-col pt-2.5">
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🙏 Devotee Name</FormLabel>
+                                  <Popover open={openDevotee} onOpenChange={setOpenDevotee}>
+                                    <PopoverTrigger asChild>
+                                      <FormControl>
+                                        <Button
+                                          variant="outline"
+                                          role="combobox"
+                                          className={cn(
+                                            "w-full justify-between",
+                                            !field.value && "text-muted-foreground"
+                                          )}
+                                          style={{
+                                            height: `${buttonSize * 2.5}rem`,
+                                            fontSize: `${textSize}rem`
+                                          }}
+                                        >
+                                          {field.value
+                                            ? devotees.find(
+                                                (devotee) => devotee.devotee_id.toString() === field.value
+                                              )?.devotee_name
+                                            : "Select devotee"}
+                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                      </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[300px] p-0">
+                                      <Command>
+                                        <CommandInput placeholder="Search devotee..." />
+                                        <CommandList>
+                                          <CommandEmpty>No devotee found.</CommandEmpty>
+                                          <CommandGroup>
+                                            {devotees.map((devotee) => (
+                                              <CommandItem
+                                                value={devotee.devotee_name}
+                                                key={devotee.devotee_id}
+                                                onSelect={() => {
+                                                  form.setValue("devotee_id", devotee.devotee_id.toString());
+                                                  setOpenDevotee(false);
+                                                }}
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault();
+                                                  form.setValue("devotee_id", devotee.devotee_id.toString());
+                                                  setOpenDevotee(false);
+                                                }}
+                                              >
+                                                <Check
+                                                  className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    devotee.devotee_id.toString() === field.value
+                                                      ? "opacity-100"
+                                                      : "opacity-0"
+                                                  )}
+                                                />
+                                                {devotee.devotee_name}
+                                              </CommandItem>
+                                            ))}
+                                          </CommandGroup>
+                                        </CommandList>
+                                      </Command>
+                                    </PopoverContent>
+                                  </Popover>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* JAPA Section */}
+                        <div className="space-y-4">
+                          <h3
+                            className="font-semibold text-lg border-b pb-2"
+                            style={{ fontSize: `${textSize * 1.125}rem` }}
+                          >
+                            📿 JAPA
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="before_7_am_japa_session"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🌅 Before 7 am (Japa Session)</FormLabel>
                                   <FormControl>
-                                    <Button
-                                      variant={"outline"}
-                                      className={cn(
-                                        "w-full h-9 pl-3 text-left font-normal",
-                                        !field.value && "text-muted-foreground"
-                                      )}
-                                    >
-                                      {field.value ? (
-                                        format(field.value, "PPP")
-                                      ) : (
-                                        <span>Pick a date</span>
-                                      )}
-                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
+                                    <NumberPicker
+                                      value={field.value}
+                                      onChange={field.onChange}
+                                      label="Japa Session Rounds"
+                                    />
                                   </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={(date) =>
-                                      date > new Date() || date < new Date("1900-01-01")
-                                    }
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                        <FormField
-                          control={form.control}
-                          name="devotee_id"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>🙏 Devotee Name</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="h-9">
-                                    <SelectValue placeholder="Select devotee" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {devotees.map((devotee) => (
-                                    <SelectItem
-                                      key={devotee.devotee_id}
-                                      value={devotee.devotee_id.toString()}
-                                    >
-                                      {devotee.devotee_name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
+                            <FormField
+                              control={form.control}
+                              name="before_7_am"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🌄 Before 7 am</FormLabel>
+                                  <FormControl>
+                                    <NumberPicker
+                                      value={field.value}
+                                      onChange={field.onChange}
+                                      label="Before 7 am Rounds"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                    {step === STEPS.JAPA && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="before_7_am_japa_session"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>🌅 Before 7 am (Japa Session)</FormLabel>
-                              <FormControl>
-                                <NumberPicker
-                                  value={field.value}
-                                  onChange={field.onChange}
-                                  label="Japa Session Rounds"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                            <FormField
+                              control={form.control}
+                              name="from_7_to_9_am"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🕖 7 to 09 am</FormLabel>
+                                  <FormControl>
+                                    <NumberPicker
+                                      value={field.value}
+                                      onChange={field.onChange}
+                                      label="7-9 am Rounds"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                        <FormField
-                          control={form.control}
-                          name="before_7_am"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>🌄 Before 7 am</FormLabel>
-                              <FormControl>
-                                <NumberPicker
-                                  value={field.value}
-                                  onChange={field.onChange}
-                                  label="Before 7 am Rounds"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                            <FormField
+                              control={form.control}
+                              name="after_9_am"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🌞 After 9 am</FormLabel>
+                                  <FormControl>
+                                    <NumberPicker
+                                      value={field.value}
+                                      onChange={field.onChange}
+                                      label="After 9 am Rounds"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
 
-                        <FormField
-                          control={form.control}
-                          name="from_7_to_9_am"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>🕖 7 to 09 am</FormLabel>
-                              <FormControl>
-                                <NumberPicker
-                                  value={field.value}
-                                  onChange={field.onChange}
-                                  label="7-9 am Rounds"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {/* READING Section */}
+                        <div className="space-y-4">
+                          <h3
+                            className="font-semibold text-lg border-b pb-2"
+                            style={{ fontSize: `${textSize * 1.125}rem` }}
+                          >
+                            📚 READING
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="book_name"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>📚 Book Name</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      style={{
+                                        height: `${buttonSize * 2.5}rem`,
+                                        fontSize: `${textSize}rem`
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                        <FormField
-                          control={form.control}
-                          name="after_9_am"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>🌞 After 9 am</FormLabel>
-                              <FormControl>
-                                <NumberPicker
-                                  value={field.value}
-                                  onChange={field.onChange}
-                                  label="After 9 am Rounds"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
+                            <FormField
+                              control={form.control}
+                              name="book_reading_time_min"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>📖 Reading Time (min)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                      style={{
+                                        height: `${buttonSize * 2.5}rem`,
+                                        fontSize: `${textSize}rem`
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
 
-                    {step === STEPS.READING && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="book_name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>📚 Book Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {/* LECTURE Section */}
+                        <div className="space-y-4">
+                          <h3
+                            className="font-semibold text-lg border-b pb-2"
+                            style={{ fontSize: `${textSize * 1.125}rem` }}
+                          >
+                            🎤 LECTURE
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="lecture_speaker"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🎤 Lecture Speaker</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      style={{
+                                        height: `${buttonSize * 2.5}rem`,
+                                        fontSize: `${textSize}rem`
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                        <FormField
-                          control={form.control}
-                          name="book_reading_time_min"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>📖 Book Reading Time (min)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  {...field}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
+                            <FormField
+                              control={form.control}
+                              name="lecture_time_min"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🕰️ Lecture Time (min)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                      style={{
+                                        height: `${buttonSize * 2.5}rem`,
+                                        fontSize: `${textSize}rem`
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
 
-                    {step === STEPS.LECTURE && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="lecture_speaker"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>🎤 Lecture Speaker</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {/* SEVA Section */}
+                        <div className="space-y-4">
+                          <h3
+                            className="font-semibold text-lg border-b pb-2"
+                            style={{ fontSize: `${textSize * 1.125}rem` }}
+                          >
+                            🛠️ SEVA
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="seva_name"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🛠️ Seva Name</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      style={{
+                                        height: `${buttonSize * 2.5}rem`,
+                                        fontSize: `${textSize}rem`
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                        <FormField
-                          control={form.control}
-                          name="lecture_time_min"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>🕰️ Lecture Time (min)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  {...field}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    {step === STEPS.SEVA && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="seva_name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>🛠️ Seva Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="seva_time_min"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>⏳ Seva Time (min)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  {...field}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                            <FormField
+                              control={form.control}
+                              name="seva_time_min"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>⏳ Seva Time (min)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                      style={{
+                                        height: `${buttonSize * 2.5}rem`,
+                                        fontSize: `${textSize}rem`
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
 
                     {step === STEPS.CONFIRM && (
-                      <ConfirmationStep values={form.getValues()} />
+                      <ConfirmationStep values={form.getValues()} textSize={textSize} />
                     )}
                   </motion.div>
                 </AnimatePresence>
@@ -729,17 +929,27 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
                     variant="outline"
                     onClick={() => handleStepChange('prev')}
                     disabled={step === 0}
+                    style={{
+                      height: `${buttonSize * 2.5}rem`,
+                      fontSize: `${textSize}rem`,
+                      minWidth: `${buttonSize * 6}rem`
+                    }}
                   >
                     Previous
                   </Button>
 
                   {step === STEPS.CONFIRM ? (
-                    <Button 
+                    <Button
                       type="submit"
                       disabled={isLoading}
                       onClick={(e) => {
                         e.preventDefault();
                         form.handleSubmit(onSubmit)(e);
+                      }}
+                      style={{
+                        height: `${buttonSize * 2.5}rem`,
+                        fontSize: `${textSize}rem`,
+                        minWidth: `${buttonSize * 8}rem`
                       }}
                     >
                       {isLoading ? "Submitting..." : "Submit Report"}
@@ -748,8 +958,13 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
                     <Button
                       type="button"
                       onClick={() => handleStepChange('next')}
+                      style={{
+                        height: `${buttonSize * 2.5}rem`,
+                        fontSize: `${textSize}rem`,
+                        minWidth: `${buttonSize * 6}rem`
+                      }}
                     >
-                      Next
+                      Review & Confirm
                     </Button>
                   )}
                 </div>

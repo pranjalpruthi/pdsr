@@ -233,28 +233,26 @@ export function WeeklyStats() {
               <TrendingUp className="h-5 w-5 text-primary" />
               Weekly Progress
             </CardTitle>
-            <CardDescription>
-              <div className="text-sm text-muted-foreground leading-relaxed">
-                <div className="flex flex-wrap gap-2">
-                  {weeks.map((week) => (
-                    <Badge
-                      key={week}
-                      variant={selectedWeeks.includes(week) ? "default" : "outline"}
-                      className="cursor-pointer hover:bg-primary/20 transition-colors"
-                      onClick={() => {
-                        setSelectedWeeks(prev => 
-                          prev.includes(week) 
-                            ? prev.filter(w => w !== week)
-                            : [...prev, week]
-                        );
-                      }}
-                    >
-                      {week}
-                    </Badge>
-                  ))}
-                </div>
+            <div className="text-sm text-muted-foreground leading-relaxed mt-1.5">
+              <div className="flex flex-wrap gap-2">
+                {weeks.map((week) => (
+                  <Badge
+                    key={week}
+                    variant={selectedWeeks.includes(week) ? "default" : "outline"}
+                    className="cursor-pointer hover:bg-primary/20 transition-colors"
+                    onClick={() => {
+                      setSelectedWeeks(prev => 
+                        prev.includes(week) 
+                          ? prev.filter(w => w !== week)
+                          : [...prev, week]
+                      );
+                    }}
+                  >
+                    {week}
+                  </Badge>
+                ))}
               </div>
-            </CardDescription>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="relative space-y-8">

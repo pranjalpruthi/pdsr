@@ -24,7 +24,17 @@ import {
   Search,
   Filter,
   BarChart2,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -259,7 +269,7 @@ export function SadhanaDataTable() {
   const [selectedRecord, setSelectedRecord] = useState<SadhanaRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [randomQuote, setRandomQuote] = useState(VANIQUOTES[0]);
-  const [selectedWeek, setSelectedWeek] = useState<number>(getWeekNumber(new Date()));
+  const [selectedWeek, setSelectedWeek] = useState<number | undefined>(undefined);
   const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
   const [pageSize, setPageSize] = useState<number>(10);
   const [devotees, setDevotees] = useState<string[]>([]);
@@ -268,6 +278,10 @@ export function SadhanaDataTable() {
   const debouncedSearch = useDebounce(searchTerm, 500);
   const [stats, setStats] = useState<SadhanaStats | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
+
+  const [openDevoteeDropdown, setOpenDevoteeDropdown] = useState(false);
+  const [openWeekDropdown, setOpenWeekDropdown] = useState(false);
+  const [openPageSizeDropdown, setOpenPageSizeDropdown] = useState(false);
 
   // Memoized Filters
   const filters = useMemo(() => ({
@@ -314,7 +328,8 @@ export function SadhanaDataTable() {
   // Enhanced Data Fetching
   const fetchData = useCallback(async (
     pageIndex: number,
-    filters: { week?: number, devotee?: string, search?: string }
+    filters: { week?: number, devotee?: string, search?: string },
+    currentSorting: SortingState = []
   ) => {
     setIsLoading(true);
     const startRange = pageIndex * pageSize;
@@ -341,10 +356,16 @@ export function SadhanaDataTable() {
         query = query.ilike('devotee_name', `%${filters.search}%`);
       }
 
+      // Apply sorting
+      if (currentSorting && currentSorting.length > 0) {
+        const { id, desc } = currentSorting[0];
+        query = query.order(id, { ascending: !desc });
+      } else {
+        query = query.order('date', { ascending: false });
+      }
+
       // Apply pagination
-      query = query
-        .order('date', { ascending: false })
-        .range(startRange, endRange);
+      query = query.range(startRange, endRange);
 
       const { data: sadhanaData, count, error } = await query;
 
@@ -406,9 +427,9 @@ export function SadhanaDataTable() {
 
   // Enhanced Search and Filter Bar
   const SearchAndFilterBar = () => {
-    const { start, end } = getWeekDates(selectedWeek, new Date().getFullYear());
-    const startDate = parseISO(start);
-    const endDate = parseISO(end);
+    const weekData = selectedWeek ? getWeekDates(selectedWeek, new Date().getFullYear()) : null;
+    const startDate = weekData ? parseISO(weekData.start) : new Date();
+    const endDate = weekData ? parseISO(weekData.end) : new Date();
 
     return (
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -426,10 +447,16 @@ export function SadhanaDataTable() {
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
               <CalendarIcon className="mr-2 h-4 w-4" />
-              <span>Week {selectedWeek}: </span>
-              <span className="ml-1 text-muted-foreground">
-                {format(startDate, 'dd MMM')} - {format(endDate, 'dd MMM')}
-              </span>
+              {selectedWeek ? (
+                <>
+                  <span>Week {selectedWeek}: </span>
+                  <span className="ml-1 text-muted-foreground">
+                    {format(startDate, 'dd MMM')} - {format(endDate, 'dd MMM')}
+                  </span>
+                </>
+              ) : (
+                <span>All Time</span>
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
@@ -444,7 +471,14 @@ export function SadhanaDataTable() {
                     week: weekNum,
                     devotee: selectedDevotee,
                     search: debouncedSearch
-                  });
+                  }, sorting);
+                } else {
+                  setSelectedWeek(undefined);
+                  fetchData(0, {
+                    week: undefined,
+                    devotee: selectedDevotee,
+                    search: debouncedSearch
+                  }, sorting);
                 }
               }}
               initialFocus
@@ -487,8 +521,8 @@ export function SadhanaDataTable() {
       week: selectedWeek,
       devotee: selectedDevotee,
       search: debouncedSearch
-    });
-  }, [debouncedSearch, selectedWeek, selectedDevotee, page, fetchData]);
+    }, sorting);
+  }, [debouncedSearch, selectedWeek, selectedDevotee, page, sorting, fetchData]);
 
   const handleViewDetails = (record: SadhanaRecord) => {
     setSelectedRecord(record);
@@ -562,7 +596,7 @@ export function SadhanaDataTable() {
 
   const fetchDevotees = async () => {
     const { data, error } = await supabase
-      .from('sadhna_report_view')
+      .from('devotees')
       .select('devotee_name')
       .order('devotee_name');
 
@@ -582,7 +616,7 @@ export function SadhanaDataTable() {
         week: selectedWeek,
         devotee: selectedDevotee,
         search: debouncedSearch
-      });
+      }, sorting);
     }
   };
 
@@ -693,80 +727,210 @@ export function SadhanaDataTable() {
         <CardContent className="p-3">
           <div className="space-y-2 mb-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              <Select
-                value={selectedDevotee || "all"}
-                onValueChange={(value) => {
-                  const devotee = value === "all" ? "" : value;
-                  setSelectedDevotee(devotee);
-                  table.getColumn("devotee_name")?.setFilterValue(devotee);
-                  fetchData(0, {
-                    week: selectedWeek,
-                    devotee: devotee,
-                    search: debouncedSearch
-                  });
-                }}
-              >
-                <SelectTrigger className="w-full h-8 text-xs">
-                  <SelectValue placeholder="👤 Select devotee" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Devotees</SelectItem>
-                  {devotees.map((devotee, index) => (
-                    <SelectItem key={`${devotee}-${index}`} value={devotee}>
-                      {devotee}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={openDevoteeDropdown} onOpenChange={setOpenDevoteeDropdown}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openDevoteeDropdown}
+                    className="w-full h-8 text-xs justify-between"
+                  >
+                    {selectedDevotee ? selectedDevotee : "👤 All Devotees"}
+                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search devotee..." className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>No devotee found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="all"
+                          onSelect={() => {
+                            setSelectedDevotee("");
+                            table.getColumn("devotee_name")?.setFilterValue("");
+                            fetchData(0, {
+                              week: selectedWeek,
+                              devotee: "",
+                              search: debouncedSearch
+                            }, sorting);
+                            setOpenDevoteeDropdown(false);
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              !selectedDevotee ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          All Devotees
+                        </CommandItem>
+                        {devotees.map((devotee) => (
+                          <CommandItem
+                            key={devotee}
+                            value={devotee}
+                            onSelect={() => {
+                              setSelectedDevotee(devotee);
+                              table.getColumn("devotee_name")?.setFilterValue(devotee);
+                              fetchData(0, {
+                                week: selectedWeek,
+                                devotee: devotee,
+                                search: debouncedSearch
+                              }, sorting);
+                              setOpenDevoteeDropdown(false);
+                            }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedDevotee === devotee ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {devotee}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
-              <Select
-                value={selectedWeek.toString()}
-                onValueChange={(value) => {
-                  const weekNum = parseInt(value);
-                  setSelectedWeek(weekNum);
-                  fetchData(0, {
-                    week: weekNum,
-                    devotee: selectedDevotee,
-                    search: debouncedSearch
-                  });
-                }}
-              >
-                <SelectTrigger className="w-full h-8 text-xs">
-                  <SelectValue placeholder="📅 Select week" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">All Weeks</SelectItem>
-                  {availableWeeks.map((week) => (
-                    <SelectItem key={week} value={week.toString()}>
-                      Week {week}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={openWeekDropdown} onOpenChange={setOpenWeekDropdown}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openWeekDropdown}
+                    className="w-full h-8 text-xs justify-between"
+                  >
+                    {selectedWeek === 0 ? "📅 All Weeks" : `📅 Week ${selectedWeek}`}
+                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search week..." className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>No week found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="0"
+                          onSelect={() => {
+                            setSelectedWeek(0);
+                            fetchData(0, {
+                              week: 0,
+                              devotee: selectedDevotee,
+                              search: debouncedSearch
+                            });
+                            setOpenWeekDropdown(false);
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedWeek === 0 ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          All Weeks
+                        </CommandItem>
+                        {availableWeeks.map((week) => (
+                          <CommandItem
+                            key={week}
+                            value={week.toString()}
+                            onSelect={(currentValue) => {
+                              const weekNum = parseInt(currentValue);
+                              setSelectedWeek(weekNum);
+                              fetchData(0, {
+                                week: weekNum,
+                                devotee: selectedDevotee,
+                                search: debouncedSearch
+                              });
+                              setOpenWeekDropdown(false);
+                            }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedWeek === week ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            Week {week}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
-              <Select
-                value={pageSize.toString()}
-                onValueChange={(value) => {
-                  const newSize = parseInt(value);
-                  setPageSize(newSize);
-                  fetchData(0, {
-                    week: selectedWeek,
-                    devotee: selectedDevotee,
-                    search: debouncedSearch
-                  });
-                }}
-              >
-                <SelectTrigger className="w-full h-8 text-xs">
-                  <SelectValue placeholder="📊 Records per page" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[5, 10, 20, 50, 100].map((size) => (
-                    <SelectItem key={size} value={size.toString()}>
-                      {size} per page
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={openPageSizeDropdown} onOpenChange={setOpenPageSizeDropdown}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openPageSizeDropdown}
+                    className="w-full h-8 text-xs justify-between"
+                  >
+                    📊 {pageSize} per page
+                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search size..." className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>No valid size.</CommandEmpty>
+                      <CommandGroup>
+                        {[5, 10, 20, 50, 100].map((size) => (
+                          <CommandItem
+                            key={size}
+                            value={size.toString()}
+                            onSelect={(currentValue) => {
+                              const newSize = parseInt(currentValue);
+                              setPageSize(newSize);
+                              fetchData(0, {
+                                week: selectedWeek,
+                                devotee: selectedDevotee,
+                                search: debouncedSearch
+                              });
+                              setOpenPageSizeDropdown(false);
+                            }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                pageSize === size ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {size} per page
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -14,7 +14,7 @@ import { Trophy, TrendingUp, Crown, Star, Sparkles, Rocket, Award, Bell, BookOpe
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import Marquee from "@/components/ui/marquee";
+import { Marquee } from "@/components/ui/marquee";
 import Meteors from "@/components/ui/meteors";
 import { cn } from "@/lib/utils";
 import ShinyButton from "@/components/ui/shiny-button";
@@ -148,12 +148,12 @@ const ImprovementCard = ({ improvement, index, onClick }: ImprovementCardProps) 
                 "backdrop-blur-sm border-green-400/30"
               )}
             >
-              +{improvement.percentageIncrease.toFixed(0)}%
+              +{Math.abs(improvement.percentageIncrease).toFixed(0)}%
             </Badge>
             <span className="text-[10px] text-white/80">improvement</span>
           </div>
           <p className="text-[10px] text-white/70">
-            Increased by {improvement.improvement} points on {improvement.date}
+            Increased by {Math.abs(improvement.improvement).toFixed(1)} points on {improvement.date}
           </p>
         </div>
       </div>
@@ -741,7 +741,7 @@ export function Leaderboard() {
           const previousScores = data.scores.slice(1);
           const avgPreviousScore = previousScores.reduce((a, b) => a + b, 0) / previousScores.length;
           const improvement = latestScore - avgPreviousScore;
-          const percentageIncrease = (improvement / avgPreviousScore) * 100;
+          const percentageIncrease = avgPreviousScore > 0 ? (improvement / avgPreviousScore) * 100 : (improvement > 0 ? 100 : 0);
 
           return {
             devotee_name,
@@ -751,7 +751,7 @@ export function Leaderboard() {
             scoreData: []
           };
         })
-        .filter((imp): imp is Improvement => imp !== null)
+        .filter((imp): imp is Improvement => imp !== null && imp.improvement > 0)
         .sort((a, b) => b.percentageIncrease - a.percentageIncrease);
 
       // Rest of your stats calculations...
@@ -1330,7 +1330,7 @@ export function Leaderboard() {
         <div className="py-6 relative">
           {stats?.significantImprovements && stats.significantImprovements.length > 0 && (
             <div className="space-y-4">
-              <Marquee className="py-2" velocity={20}>
+              <Marquee className="py-2" speed={35} pauseOnHover>
                 {[...stats.significantImprovements].map((improvement, index) => (
                   <ImprovementCard
                     key={`top-${improvement.devotee_name}-${index}`}
@@ -1343,7 +1343,7 @@ export function Leaderboard() {
                   />
                 ))}
               </Marquee>
-              <Marquee className="py-2" velocity={15} reverse>
+              <Marquee className="py-2" speed={30} reverse pauseOnHover>
                 {[...stats.significantImprovements].map((improvement, index) => (
                   <ImprovementCard
                     key={`bottom-${improvement.devotee_name}-${index}`}

@@ -154,7 +154,7 @@ export default function Home() {
             variants={itemVariants}
           >
             <Badge variant="secondary" className="text-xs md:text-sm">
-            v0.0.7 - 🌻 Kaliya Mardana Stage 🌻 [prabhu-edition]
+            v0.0.8 - 🏔️ Govardhana Lila Stage 🏔️ [prabhu-edition]
             </Badge>
             
             {/* Operational Status Badge */}
@@ -232,25 +232,32 @@ export default function Home() {
               </TabsList>
             </div>
 
-            {/* Overview Tab - Side by Side Layout */}
+            {/* Overview Tab - Form with Videos Below */}
             <TabsContent value="overview" className="space-y-8">
-              {/* Form and Videos Side by Side */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Form Section */}
-                <div className="w-full">
-                  <SadhanaForm onNavigateToRecords={() => navigateToTab("records")} />
-                </div>
+              {/* Form Section */}
+              <div className="w-full">
+                <SadhanaForm onNavigateToRecords={() => navigateToTab("records")} />
+              </div>
 
-                {/* Chanting Videos Section */}
-                <div className="w-full space-y-4">
-                  <Suspense
-                    fallback={
-                      <Card className="h-[400px] animate-pulse" />
-                    }
-                  >
-                    <ChantingVideos />
-                  </Suspense>
-                </div>
+              {/* Chanting Videos Section - Below Form */}
+              <div className="w-full space-y-4">
+                <Suspense
+                  fallback={
+                    <div className="space-y-4">
+                      <div className="h-8 w-64 mx-auto animate-pulse bg-gray-200 dark:bg-gray-800 rounded" />
+                      <div className="flex gap-4 overflow-hidden">
+                        {[...Array(3)].map((_, i) => (
+                          <div
+                            key={i}
+                            className="h-48 w-64 animate-pulse rounded-xl border bg-gray-200 dark:bg-gray-800"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  }
+                >
+                  <ChantingVideos />
+                </Suspense>
               </div>
             </TabsContent>
 

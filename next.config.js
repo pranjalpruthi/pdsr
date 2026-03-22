@@ -37,6 +37,12 @@ const nextConfig = {
         hostname: 'utfs.io',
         port: '',
         pathname: '/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+        port: '',
+        pathname: '/**'
       }
     ]
   }
