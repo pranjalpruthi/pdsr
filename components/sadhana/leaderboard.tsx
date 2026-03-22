@@ -32,7 +32,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import confetti from "canvas-confetti";
-import { motion } from "framer-motion";
+import { motion } from "motion/react"
+;
 import {
   Dialog,
   DialogContent,

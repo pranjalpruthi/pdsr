@@ -71,7 +71,8 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react"
+;
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Calendar as CalendarIcon } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 
 export function AnnouncementBanner() {
   const [dismissed, setDismissed] = useState(false);

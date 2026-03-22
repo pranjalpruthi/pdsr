@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { TrendingUp, Bell, BookOpen, Headphones, Heart, QuoteIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { GradientBentoCard } from "@/components/ui/gradient-bento-card";
 import { cn } from "@/lib/utils";

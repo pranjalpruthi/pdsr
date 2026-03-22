@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ManageSection } from "@/components/sadhana/manage";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import ModeToggle from "@/components/mode-toggle";
 import Image from "next/image";
 import { ChantingVideos } from "@/components/sadhana/chanting-videos";
@@ -42,7 +42,7 @@ export default function Home() {
       opacity: 1,
       transition: {
         duration: 0.5,
-        ease: "easeOut"
+        ease: "easeOut" as const
       }
     }
   };
