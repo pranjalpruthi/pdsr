@@ -57,7 +57,7 @@ const staggerContainer = {
       delayChildren: 0.3
     }
   }
-};
+} as const;
 
 const fadeInScale = {
   hidden: { 
@@ -73,7 +73,7 @@ const fadeInScale = {
       damping: 15
     }
   }
-};
+} as const;
 
 interface ProgressTrackerProps {
   scoresByDevotee: Record<string, number[]>;

@@ -352,7 +352,7 @@ const itemVariants = {
       bounce: 0.4
     }
   }
-};
+} as const;
 
 // Add these variants for staggered animations
 const podiumVariants = {
@@ -365,7 +365,7 @@ const podiumVariants = {
       bounce: 0.4
     }
   }
-};
+} as const;
 
 // Add these animation variants at the top with other variants
 const cardVariants = {
@@ -385,7 +385,7 @@ const cardVariants = {
       mass: 1
     }
   }
-};
+} as const;
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -396,7 +396,7 @@ const staggerContainer = {
       delayChildren: 0.3
     }
   }
-};
+} as const;
 
 const fadeInScale = {
   hidden: { 
@@ -412,7 +412,7 @@ const fadeInScale = {
       damping: 15
     }
   }
-};
+} as const;
 
 const BlockQuote = ({
   quote,
