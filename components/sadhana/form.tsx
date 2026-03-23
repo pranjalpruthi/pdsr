@@ -156,7 +156,7 @@ function ConfirmationStep({ values, textSize }: { values: z.infer<typeof formSch
             <>
               <Separator />
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <div className="font-semibold" style={{ fontSize: `${textSize}rem` }}>Seva:</div>
+                <div className="font-semibold" style={{ fontSize: `${textSize}rem` }}>Preaching:</div>
                 <div style={{ fontSize: `${textSize}rem` }}>{values.seva_name} ({values.seva_time_min} min)</div>
               </div>
             </>
@@ -406,10 +406,10 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
         return false;
       }
 
-      // Validate seva
+      // Validate preaching
       const sevaTime = form.getValues('seva_time_min');
       if (sevaTime > 0 && !form.getValues('seva_name')) {
-        toast.error("Please enter the seva name");
+        toast.error("Please enter the preaching name");
         return false;
       }
 
@@ -861,13 +861,13 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
                           </div>
                         </div>
 
-                        {/* SEVA Section */}
+                        {/* PREACHING Section */}
                         <div className="space-y-4">
                           <h3
                             className="font-semibold text-lg border-b pb-2"
                             style={{ fontSize: `${textSize * 1.125}rem` }}
                           >
-                            🛠️ SEVA
+                            📢 PREACHING
                           </h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
@@ -875,7 +875,7 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
                               name="seva_name"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>🛠️ Seva Name</FormLabel>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>📢 Preaching Name</FormLabel>
                                   <FormControl>
                                     <Input
                                       {...field}
@@ -895,7 +895,7 @@ export function SadhanaForm({ onNavigateToRecords }: SadhanaFormProps) {
                               name="seva_time_min"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>⏳ Seva Time (min)</FormLabel>
+                                  <FormLabel style={{ fontSize: `${textSize}rem` }}>⏳ Preaching Time (min)</FormLabel>
                                   <FormControl>
                                     <Input
                                       type="number"

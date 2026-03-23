@@ -1182,10 +1182,10 @@ export function SadhanaDataTable() {
                     transition={{ delay: 0.6 }}
                     className="rounded-lg border p-4"
                   >
-                    <h3 className="mb-3 font-semibold text-primary">Seva</h3>
+                    <h3 className="mb-3 font-semibold text-primary">Preaching</h3>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span>Service:</span>
+                        <span>Preaching:</span>
                         <span className="font-medium">{selectedRecord.seva_name}</span>
                       </div>
                       <div className="flex justify-between">
